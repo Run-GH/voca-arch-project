@@ -417,11 +417,22 @@
       </div>
 
       <!-- Supabase 원격 DB 연결 설정 -->
-      <div class="space-y-2 pt-2 border-t border-slate-200">
-        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Supabase 클라우드 DB 연동 (선택)</h3>
+      <div class="space-y-2.5 pt-2 border-t border-slate-200">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Supabase 클라우드 DB 연동 및 동기화</h3>
         <input id="inputSupabaseUrl" type="text" placeholder="https://your-project.supabase.co" class="w-full rounded-xl border border-slate-300 px-3 py-1.5 text-xs" />
-        <input id="inputSupabaseKey" type="password" placeholder="Supabase Anon Public Key" class="w-full rounded-xl border border-slate-300 px-3 py-1.5 text-xs" />
-        <p class="text-[11px] text-slate-500">입력하지 않아도 브라우저 내장 DB(IndexedDB/LocalStorage)에 즉시 저장되며, 입력 시 Supabase `vocab_entries` 테이블과 실시간 동기화됩니다.</p>
+        <input id="inputSupabaseKey" type="password" placeholder="Supabase Anon Public Key (eyJ... 또는 sb_publishable_...)" class="w-full rounded-xl border border-slate-300 px-3 py-1.5 text-xs" />
+        <div class="flex flex-wrap gap-1.5 pt-1">
+          <button id="btnPullFromSupabase" type="button" class="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold transition">
+            🔄 Supabase DB에서 단어 불러오기
+          </button>
+          <button id="btnPushLocalToSupabase" type="button" class="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition">
+            ☁️ 현재 화면 단어를 Supabase로 업로드
+          </button>
+          <button id="btnClearDefaultSamples" type="button" class="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition">
+            🗑️ 기본 샘플 단어 지우기
+          </button>
+        </div>
+        <div id="supabaseSyncModalMsg" class="hidden text-xs font-medium px-3 py-2 rounded-xl bg-slate-100 text-slate-700"></div>
       </div>
 
       <div class="flex justify-end pt-2">
@@ -698,6 +709,147 @@
         localStorage.setItem("vocaarch_settings_v1", JSON.stringify(state.settings));
       } catch (_e) {
         // Ignore sandbox quota issues
+      }
+    }
+
+    // =========================================================================
+    // Supabase 실시간 REST API 연동 (조회 / 저장 / 오답률 업데이트 / 초기화)
+    // =========================================================================
+    function hasSupabaseConfig() {
+      return Boolean(
+        state.settings.supabaseUrl &&
+        state.settings.supabaseUrl.startsWith("http") &&
+        state.settings.supabaseKey &&
+        state.settings.supabaseKey.length > 10
+      );
+    }
+
+    function getSupabaseHeaders(preferHeader) {
+      const headers = {
+        "apikey": state.settings.supabaseKey,
+        "Authorization": "Bearer " + state.settings.supabaseKey,
+        "Content-Type": "application/json"
+      };
+      if (preferHeader) headers["Prefer"] = preferHeader;
+      return headers;
+    }
+
+    function setSyncStatusBanner(msg, isError) {
+      const badge = document.getElementById("dbStatusBadge");
+      if (!badge) return;
+      if (isError) {
+        badge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200";
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> ' + escapeHtml(msg);
+      } else if (hasSupabaseConfig()) {
+        badge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200";
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> ' + escapeHtml(msg);
+      } else {
+        badge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200";
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ' + escapeHtml(msg);
+      }
+    }
+
+    // Supabase DB용 payload 변환 (error_rate와 seq_order는 DB 자동 생성 컬럼이므로 제외, UUID 형식 보장)
+    function toSupabasePayload(entry) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(entry.id || ""));
+      const payload = {
+        book_title: entry.book_title || null,
+        chapter_name: entry.chapter_name || null,
+        word: entry.word,
+        phonetic: entry.phonetic || null,
+        audio_url: entry.audio_url || null,
+        part_of_speech: entry.part_of_speech || "n.",
+        meaning_ko: entry.meaning_ko,
+        example_sentence: entry.example_sentence || null,
+        attempt_count: Number(entry.attempt_count) || 0,
+        wrong_count: Number(entry.wrong_count) || 0,
+        is_last_wrong: Boolean(entry.is_last_wrong)
+      };
+      if (isUuid) payload.id = entry.id;
+      return payload;
+    }
+
+    async function fetchEntriesFromSupabase() {
+      if (!hasSupabaseConfig()) return false;
+      const baseUrl = state.settings.supabaseUrl.replace(/\/+$/, "");
+      try {
+        setSyncStatusBanner("Supabase 동기화 중...", false);
+        const res = await fetch(baseUrl + "/rest/v1/vocab_entries?select=*&order=seq_order.asc", {
+          method: "GET",
+          headers: getSupabaseHeaders()
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          setSyncStatusBanner("Supabase 연결 오류 (" + res.status + ")", true);
+          console.error("Supabase GET error:", errText);
+          return false;
+        }
+        const remoteRows = await res.json();
+        if (Array.isArray(remoteRows)) {
+          // 원격 DB 데이터로 화면 상태 즉시 교체 (비어 있으면 0건으로 표시하여 디폴트 샘플과 혼동 방지!)
+          state.entries = remoteRows.map((r, idx) => ({
+            ...r,
+            error_rate: Number(r.error_rate ?? 0),
+            seq_order: Number(r.seq_order ?? (idx + 1))
+          }));
+          saveToStorage();
+          renderFilterDropdowns();
+          renderVocabList();
+          setSyncStatusBanner(`Supabase 연동됨 (${state.entries.length}개 단어)`, false);
+          return true;
+        }
+      } catch (err) {
+        setSyncStatusBanner("Supabase 네트워크 연결 실패", true);
+        console.error(err);
+      }
+      return false;
+    }
+
+    async function pushEntriesToSupabase(entriesToPush) {
+      if (!hasSupabaseConfig() || !Array.isArray(entriesToPush) || entriesToPush.length === 0) return false;
+      const baseUrl = state.settings.supabaseUrl.replace(/\/+$/, "");
+      try {
+        const payloads = entriesToPush.map(toSupabasePayload);
+        const res = await fetch(baseUrl + "/rest/v1/vocab_entries", {
+          method: "POST",
+          headers: getSupabaseHeaders("return=representation,resolution=merge-duplicates"),
+          body: JSON.stringify(payloads)
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          setSyncStatusBanner("Supabase 저장 실패 (" + res.status + ")", true);
+          console.error("Supabase POST error:", errText);
+          return false;
+        }
+        await fetchEntriesFromSupabase();
+        return true;
+      } catch (err) {
+        setSyncStatusBanner("Supabase 저장 중 오류", true);
+        console.error(err);
+        return false;
+      }
+    }
+
+    async function updateAttemptInSupabase(entry) {
+      if (!hasSupabaseConfig() || !entry) return;
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(entry.id || ""));
+      if (!isUuid) {
+        await pushEntriesToSupabase([entry]);
+        return;
+      }
+      const baseUrl = state.settings.supabaseUrl.replace(/\/+$/, "");
+      try {
+        await fetch(baseUrl + "/rest/v1/vocab_entries?id=eq." + encodeURIComponent(entry.id), {
+          method: "PATCH",
+          headers: getSupabaseHeaders("return=representation"),
+          body: JSON.stringify({
+            attempt_count: entry.attempt_count,
+            wrong_count: entry.wrong_count,
+            is_last_wrong: entry.is_last_wrong
+          })
+        });
+      } catch (err) {
+        console.error(err);
       }
     }
 
@@ -1159,6 +1311,7 @@
 
       saveToStorage();
       renderVocabList();
+      updateAttemptInSupabase(state.entries[idx]);
     }
 
     // =========================================================================
@@ -1378,6 +1531,9 @@
       loadFromStorage();
       renderFilterDropdowns();
       renderVocabList();
+      if (hasSupabaseConfig()) {
+        fetchEntriesFromSupabase();
+      }
 
       // 1. 상단 폰트 크기 조절
       document.getElementById("btnFontDec").addEventListener("click", () => {
@@ -1588,6 +1744,9 @@
         saveToStorage();
         renderFilterDropdowns();
         renderVocabList();
+        if (hasSupabaseConfig()) {
+          await pushEntriesToSupabase(newRows);
+        }
 
         statusEl.classList.add("hidden");
         document.getElementById("textareaOcrRaw").value = "";
@@ -1671,6 +1830,9 @@
         document.getElementById("labelAutoAdvanceSec").textContent =
           state.settings.flashcardAutoAdvanceSec === 0 ? "수동 (0초)" : `${state.settings.flashcardAutoAdvanceSec}초`;
         document.getElementById("selectFcInitialSide").value = state.settings.flashcardInitialSide;
+        document.getElementById("inputSupabaseUrl").value = state.settings.supabaseUrl || "";
+        document.getElementById("inputSupabaseKey").value = state.settings.supabaseKey || "";
+        document.getElementById("supabaseSyncModalMsg").classList.add("hidden");
         modalSettings.classList.remove("hidden");
       });
 
@@ -1681,7 +1843,43 @@
         document.getElementById("labelAutoAdvanceSec").textContent = val === 0 ? "수동 (0초)" : `${val}초`;
       });
 
-      document.getElementById("btnSaveSettings").addEventListener("click", () => {
+      document.getElementById("btnPullFromSupabase").addEventListener("click", async () => {
+        state.settings.supabaseUrl = document.getElementById("inputSupabaseUrl").value.trim();
+        state.settings.supabaseKey = document.getElementById("inputSupabaseKey").value.trim();
+        saveToStorage();
+        const msgBox = document.getElementById("supabaseSyncModalMsg");
+        msgBox.classList.remove("hidden");
+        msgBox.textContent = "Supabase에서 vocab_entries 데이터를 불러오는 중...";
+        const ok = await fetchEntriesFromSupabase();
+        msgBox.textContent = ok
+          ? `✅ Supabase에서 총 ${state.entries.length}개의 단어 행을 불러왔습니다. (테이블이 비어 있으면 0개로 표시됩니다)`
+          : "❌ 불러오기 실패: Project URL, API Key, 또는 SQL Editor에서 vocab_entries 테이블 생성 여부를 확인해 주세요.";
+      });
+
+      document.getElementById("btnPushLocalToSupabase").addEventListener("click", async () => {
+        state.settings.supabaseUrl = document.getElementById("inputSupabaseUrl").value.trim();
+        state.settings.supabaseKey = document.getElementById("inputSupabaseKey").value.trim();
+        saveToStorage();
+        const msgBox = document.getElementById("supabaseSyncModalMsg");
+        msgBox.classList.remove("hidden");
+        msgBox.textContent = "현재 단어들을 Supabase DB로 업로드 중...";
+        const ok = await pushEntriesToSupabase(state.entries);
+        msgBox.textContent = ok
+          ? `✅ 성공적으로 업로드 및 동기화되었습니다! (총 ${state.entries.length}개 행)`
+          : "❌ 업로드 실패: Supabase SQL Editor에서 테이블 및 RLS 정책 생성 SQL을 먼저 실행했는지 확인해 주세요.";
+      });
+
+      document.getElementById("btnClearDefaultSamples").addEventListener("click", () => {
+        state.entries = [];
+        saveToStorage();
+        renderFilterDropdowns();
+        renderVocabList();
+        const msgBox = document.getElementById("supabaseSyncModalMsg");
+        msgBox.classList.remove("hidden");
+        msgBox.textContent = "🗑️ 브라우저에 남아 있던 기본 샘플 단어를 모두 비웠습니다.";
+      });
+
+      document.getElementById("btnSaveSettings").addEventListener("click", async () => {
         state.settings.showPhonetic = document.getElementById("chkShowPhonetic").checked;
         state.settings.showPos = document.getElementById("chkShowPos").checked;
         state.settings.showExample = document.getElementById("chkShowExample").checked;
@@ -1690,14 +1888,13 @@
         state.settings.supabaseUrl = document.getElementById("inputSupabaseUrl").value.trim();
         state.settings.supabaseKey = document.getElementById("inputSupabaseKey").value.trim();
 
-        if (state.settings.supabaseUrl && state.settings.supabaseKey) {
-          document.getElementById("dbStatusBadge").innerHTML =
-            '<span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> Supabase Cloud Connected';
-        }
-
         saveToStorage();
         renderVocabList();
         modalSettings.classList.add("hidden");
+
+        if (hasSupabaseConfig()) {
+          await fetchEntriesFromSupabase();
+        }
       });
 
       // 9. SQL & Android 코드 뷰어 모달
