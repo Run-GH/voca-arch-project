@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VocaArch — 영단어 암기 마스터 (Web &amp; Android 통합 워크스페이스)</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      overflow-x: hidden;
+    }
+    .scratchpad-canvas {
+      touch-action: none;
+      cursor: crosshair;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- 상단 메뉴바 (Top App Bar) -->
+  <header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2">
+      <!-- 로고 & 프로젝트 상태 -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-extrabold text-lg shadow-sm">
+          V
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-base sm:text-lg text-slate-900 tracking-tight">VocaArch 단어장</h1>
+            <span id="dbStatusBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              Local IndexedDB + Supabase Ready
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 hidden sm:block">다품사 행 자동 분리 · 누락 발음기호/음성 자동 보강 · 눈 아이콘 필기 스크래치패드</p>
+        </div>
+      </div>
+
+      <!-- 상단 메뉴바 우측 컨트롤 그룹 -->
+      <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+        <!-- 1. 폰트 크기 조절 컨트롤 -->
+        <div class="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200" title="상단 메뉴바 폰트 크기 조절">
+          <button id="btnFontDec" type="button" class="px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-white rounded-md transition">
+            A-
+          </button>
+          <span id="fontScaleLabel" class="px-2 text-xs font-semibold text-indigo-700 min-w-[44px] text-center">100%</span>
+          <button id="btnFontInc" type="button" class="px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-white rounded-md transition">
+            A+
+          </button>
+        </div>
+
+        <!-- 2. 상단 플레이 버튼 (플래시카드 실행) -->
+        <button id="btnOpenFlashcard" type="button" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M4.5 3.5v13l11-6.5-11-6.5z"/></svg>
+          <span>플레이</span>
+        </button>
+
+        <!-- 3. 이미지 OCR 입력 버튼 -->
+        <button id="btnOpenOcrModal" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 transition">
+          <span>📷 이미지/단어 입력</span>
+        </button>
+
+        <!-- 4. 파일 입출력 (DB <-> 파일 인덱싱/출력) -->
+        <button id="btnOpenFileModal" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 transition">
+          <span>📂 파일 입출력</span>
+        </button>
+
+        <!-- 5. 설정 버튼 (발음기호/품사/예문 표시 선택, 자동넘김 시간, Supabase 연동) -->
+        <button id="btnOpenSettingsModal" type="button" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition">
+          <span>⚙️ 설정</span>
+        </button>
+
+        <!-- 6. 아키텍처 & 안드로이드/SQL 코드 뷰어 탭 전환 -->
+        <button id="btnToggleCodeDrawer" type="button" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-slate-800 hover:bg-slate-900 text-white transition">
+          <span>💻 SQL / Android 코드</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 필터(책제목/단원) 및 5종 정렬 컨트롤 바 -->
+  <section class="bg-white border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      <!-- 책제목 & 단원 필터 -->
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="flex items-center gap-1.5">
+          <label for="selectBookFilter" class="text-xs font-semibold text-slate-600">책제목:</label>
+          <select id="selectBookFilter" class="text-xs sm:text-sm rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="">전체 (선택 안 함)</option>
+          </select>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <label for="selectChapterFilter" class="text-xs font-semibold text-slate-600">단원:</label>
+          <select id="selectChapterFilter" class="text-xs sm:text-sm rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="">전체 (선택 안 함)</option>
+          </select>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <input id="inputSearchKeyword" type="text" placeholder="단어/뜻 검색..." class="text-xs sm:text-sm rounded-lg border border-slate-300 px-2.5 py-1.5 w-36 sm:w-44 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+      </div>
+
+      <!-- 5종 정렬 선택 & 통계 요약 -->
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="flex items-center gap-1.5">
+          <label for="selectSortOrder" class="text-xs font-semibold text-slate-600">정렬 순서:</label>
+          <select id="selectSortOrder" class="text-xs sm:text-sm rounded-lg border border-indigo-200 bg-indigo-50/60 px-2.5 py-1.5 font-semibold text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="INPUT_ORDER">입력된 순서</option>
+            <option value="WORD_ASC">단어 오름차순 (A → Z)</option>
+            <option value="WORD_DESC">단어 내림차순 (Z → A)</option>
+            <option value="RANDOM">랜덤 (Random 셔플)</option>
+            <option value="ERROR_RATE_DESC">오답률 높은 순서</option>
+          </select>
+          <button id="btnReshuffleRandom" type="button" class="hidden px-2 py-1 text-xs font-medium bg-indigo-100 text-indigo-800 rounded hover:bg-indigo-200 transition" title="랜덤 순서 다시 섞기">
+            🔀 다시 섞기
+          </button>
+        </div>
+
+        <span id="summaryCounter" class="text-xs font-medium text-slate-500 pl-1">총 0개 행</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 메인 컨텐츠: 2컬럼 단어장 테이블 (눈 모양 아이콘 토글 + 필기 캔버스 지원) -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4">
+    <!-- 안내 배너: 눈 아이콘 OFF 시 필기 동작 안내 -->
+    <div id="scratchpadHintBanner" class="hidden mb-3 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-2 text-xs sm:text-sm text-amber-900">
+      <div class="flex items-center gap-2">
+        <span class="text-base">✍️</span>
+        <span><strong>필기 모드 활성화됨:</strong> 가려진 컬럼 영역 위에 마우스, 손가락, 또는 펜(S펜/애플펜슬)으로 직접 단어나 뜻을 필기해 보세요! 눈 아이콘(👁️)을 다시 켜면 내가 쓴 글씨와 정답을 비교할 수 있습니다.</span>
+      </div>
+      <button id="btnClearAllInk" type="button" class="shrink-0 px-2.5 py-1 rounded-lg bg-amber-200/70 hover:bg-amber-300 font-semibold text-amber-950 text-xs transition">
+        전체 필기 지우기
+      </button>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <!-- 2컬럼 헤더 (각 컬럼에 눈 모양 아이콘 👁️ 배치) -->
+      <div class="grid grid-cols-12 bg-slate-100/90 border-b border-slate-200 text-xs sm:text-sm font-bold text-slate-700">
+        <!-- 좌측 컬럼 헤더: 영단어 -->
+        <div class="col-span-5 sm:col-span-5 px-3 sm:px-5 py-3 flex items-center justify-between border-r border-slate-200">
+          <div class="flex items-center gap-2">
+            <span>영단어 컬럼</span>
+            <span id="badgeWordColState" class="px-2 py-0.5 text-[11px] rounded-full bg-emerald-100 text-emerald-800 font-medium">표시 중</span>
+          </div>
+          <button id="btnToggleWordEye" type="button" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-300 shadow-2xs transition text-xs" title="영단어 컬럼 보이기/가리기 (가리면 필기 가능)">
+            <span id="iconWordEye">👁️</span>
+            <span id="labelWordEye" class="hidden sm:inline">가리기/필기</span>
+          </button>
+        </div>
+
+        <!-- 우측 컬럼 헤더: 의미 (품사 + 한글 뜻 / 아랫줄 예문) -->
+        <div class="col-span-7 sm:col-span-7 px-3 sm:px-5 py-3 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span>의미 컬럼 (품사·뜻 / 예문)</span>
+            <span id="badgeMeaningColState" class="px-2 py-0.5 text-[11px] rounded-full bg-emerald-100 text-emerald-800 font-medium">표시 중</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button id="btnToggleMeaningEye" type="button" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-300 shadow-2xs transition text-xs" title="의미 컬럼 보이기/가리기 (가리면 필기 가능)">
+              <span id="iconMeaningEye">👁️</span>
+              <span id="labelMeaningEye" class="hidden sm:inline">가리기/필기</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 단어 리스트 바디 -->
+      <div id="vocabListContainer" class="divide-y divide-slate-200"></div>
+    </div>
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- 모달 1: 상단 플레이(▶) 버튼 플래시카드 플레이어                         -->
+  <!-- ===================================================================== -->
+  <div id="modalFlashcard" class="fixed inset-0 z-50 hidden bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-xl w-full p-5 sm:p-7 shadow-2xl border border-slate-200 flex flex-col justify-between min-h-[430px]">
+      <!-- 상단 바 -->
+      <div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2">
+          <span id="fcCounter" class="px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-800 font-bold text-xs">1 / 10</span>
+          <span id="fcBookChapterBadge" class="text-xs text-slate-500 font-medium truncate max-w-[200px]"></span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button id="btnFcToggleAutoPause" type="button" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+            ⏱ 자동넘김 3초
+          </button>
+          <button id="btnCloseFlashcard" type="button" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <!-- 자동 넘김 진행 프로그레스 바 -->
+      <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden my-2">
+        <div id="fcTimerBar" class="bg-indigo-600 h-full transition-all duration-150" style="width: 0%"></div>
+      </div>
+
+      <!-- 중앙 터치 카드 영역 (터치 시 단어 <-> 의미 토글, 한 번 더 터치 시 다음 단어로 이동) -->
+      <div id="fcCardTouchArea" class="my-3 flex-1 rounded-2xl bg-gradient-to-br from-slate-50 to-indigo-50/40 border-2 border-indigo-100 hover:border-indigo-300 p-6 sm:p-8 flex flex-col items-center justify-center text-center cursor-pointer select-none transition relative">
+        <span id="fcSideBadge" class="absolute top-3 left-4 text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">
+          WORD
+        </span>
+
+        <button id="btnFcSpeak" type="button" class="absolute top-3 right-4 px-2.5 py-1 rounded-lg bg-white shadow-2xs border border-slate-200 text-xs font-semibold text-indigo-600 hover:bg-indigo-50">
+          🔊 발음 듣기
+        </button>
+
+        <div id="fcMainContent" class="my-4"></div>
+
+        <p id="fcTouchHint" class="text-xs text-slate-400 mt-4">
+          💡 카드를 터치하면 단어 ↔ 의미가 토글되며, 한 번 더 터치하면 다음 단어로 넘어갑니다.
+        </p>
+      </div>
+
+      <!-- 하단 오답/정답 기록 및 이전/다음 버튼 -->
+      <div class="flex items-center justify-between gap-2 pt-2">
+        <button id="btnFcPrev" type="button" class="px-4 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-100">
+          ← 이전
+        </button>
+
+        <div class="flex items-center gap-2">
+          <button id="btnFcMarkWrong" type="button" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs sm:text-sm font-bold shadow-xs transition">
+            ❌ 틀림 기록
+          </button>
+          <button id="btnFcMarkCorrect" type="button" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-xs transition">
+            ⭕ 외움 기록
+          </button>
+        </div>
+
+        <button id="btnFcNext" type="button" class="px-4 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-100">
+          다음 →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 모달 2: 이미지 OCR 파싱 & 다품사 행 분리 & 음성/발음기호 보강 입력 모달   -->
+  <!-- ===================================================================== -->
+  <div id="modalOcrInput" class="fixed inset-0 z-50 hidden bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 my-8">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-slate-900">📷 이미지 OCR 단어 추출 및 다품사 자동 분리</h2>
+          <p class="text-xs text-slate-500">이미지에서 문자를 읽어 영단어·뜻·예문을 파싱하고, 누락된 발음기호와 원어민 음성을 자동으로 채웁니다.</p>
+        </div>
+        <button id="btnCloseOcrModal" type="button" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+
+      <div class="space-y-4 mt-4">
+        <!-- 책제목 / 단원명 입력 (비워져 있을 수도 있음) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">책제목 (선택사항 — 비워둘 수 있음)</label>
+            <input id="ocrBookTitle" type="text" placeholder="예: 수능 필수 영단어 2000" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">단원명 (선택사항 — 비워둘 수 있음)</label>
+            <input id="ocrChapterName" type="text" placeholder="예: Day 01" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+        </div>
+
+        <!-- 이미지 파일 업로드 영역 -->
+        <div class="p-3.5 rounded-2xl bg-indigo-50/60 border border-indigo-200 flex flex-wrap items-center justify-between gap-3">
+          <div class="text-xs text-indigo-950">
+            <p class="font-bold">1단계: 단어장 이미지 파일 선택 또는 샘플 스캔 이미지 테스트</p>
+            <p class="text-indigo-700 mt-0.5">발음기호가 없는 이미지나 1단어에 여러 품사(n., v., adj.)가 적힌 이미지를 자동으로 분리합니다.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="cursor-pointer px-3 py-1.5 rounded-xl bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-300 font-semibold text-xs transition">
+              <span>🖼️ 이미지 파일 선택</span>
+              <input id="inputOcrImageFile" type="file" accept="image/*" class="hidden" />
+            </label>
+            <button id="btnLoadSampleOcr" type="button" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition">
+              ✨ 다품사/무발음기호 샘플 불러오기
+            </button>
+          </div>
+        </div>
+
+        <!-- OCR 추출 텍스트 검수 및 편집 영역 -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">
+            2단계: 추출된 OCR 텍스트 검수 (1단어에 여러 품사가 있으면 품사별로 행이 자동 분리됩니다)
+          </label>
+          <textarea id="textareaOcrRaw" rows="6" class="w-full rounded-xl border border-slate-300 p-3 text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="예시 형식 (발음기호 생략 가능, 한 단어 다품사 자동 분리):&#10;present n. 선물, 현재 v. 제출하다, 증정하다 adj. 현재의, 참석한 | This book is a birthday present.&#10;conduct v. 지휘하다, 수행하다 n. 행위, 품행 | She conducted the orchestra.&#10;elaborate adj. 정교한, 복잡한 v. 자세히 설명하다 | Could you elaborate on your plan?"></textarea>
+        </div>
+
+        <div id="ocrParseStatus" class="hidden text-xs font-medium px-3 py-2 rounded-xl bg-slate-100 text-slate-700"></div>
+
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+          <button id="btnCancelOcrModal" type="button" class="px-4 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            취소
+          </button>
+          <button id="btnExecuteOcrImport" type="button" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold shadow-xs transition">
+            🔍 파싱 + 발음기호/음성 자동보강 후 DB 저장
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 모달 3: 파일 입출력 (DB -> 파일 출력 / 파일 -> DB 인덱싱)                -->
+  <!-- ===================================================================== -->
+  <div id="modalFileIo" class="fixed inset-0 z-50 hidden bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <h2 class="text-base sm:text-lg font-bold text-slate-900">📂 DB ↔ 파일 출력 및 인덱싱</h2>
+        <button id="btnCloseFileModal" type="button" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+
+      <!-- DB -> 파일 출력 -->
+      <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+        <h3 class="text-sm font-bold text-slate-800">1. DB에 저장된 단어장을 파일로 출력 (Export)</h3>
+        <p class="text-xs text-slate-600">책제목, 단원명, 영단어, 발음기호, 품사, 뜻, 예문, 오답률 통계가 포함된 파일로 내보냅니다.</p>
+        <div class="flex flex-wrap gap-2 pt-1">
+          <button id="btnExportCsv" type="button" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition">
+            ⬇️ CSV 파일로 다운로드 (.csv)
+          </button>
+          <button id="btnExportJson" type="button" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition">
+            ⬇️ JSON 파일로 다운로드 (.json)
+          </button>
+        </div>
+      </div>
+
+      <!-- 파일 -> DB 인덱싱 -->
+      <div class="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-200 space-y-2.5">
+        <h3 class="text-sm font-bold text-indigo-950">2. 외부 파일을 읽어들여 DB에 인덱싱 (Import &amp; Index)</h3>
+        <p class="text-xs text-indigo-800">CSV 또는 JSON 파일을 선택하면 품사별 정규화 및 누락 발음기호 조회 후 DB에 고속 인덱싱합니다.</p>
+        <div class="flex items-center gap-2 pt-1">
+          <label class="cursor-pointer px-4 py-2 rounded-xl bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-300 text-xs font-bold shadow-2xs transition">
+            <span>📤 CSV / JSON 파일 선택하여 DB 인덱싱</span>
+            <input id="inputImportFile" type="file" accept=".csv,.json" class="hidden" />
+          </label>
+        </div>
+      </div>
+
+      <div id="fileIoStatusMsg" class="hidden text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl"></div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 모달 4: 설정 (발음기호/품사/예문 표시, 자동넘김 시간, Supabase 연동)      -->
+  <!-- ===================================================================== -->
+  <div id="modalSettings" class="fixed inset-0 z-50 hidden bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 my-8">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <h2 class="text-base sm:text-lg font-bold text-slate-900">⚙️ 화면 표시 항목 및 플래시카드/DB 설정</h2>
+        <button id="btnCloseSettingsModal" type="button" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+
+      <!-- 컬럼 내 보여줄 내용 선택 (발음기호, 품사, 예시) -->
+      <div class="space-y-2">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">컬럼에 보여줄 내용 선택</h3>
+        <label class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
+          <div>
+            <p class="text-sm font-semibold text-slate-800">발음기호 (Phonetic IPA) 표시</p>
+            <p class="text-xs text-slate-500">영단어 컬럼의 영단어(디폴트) 옆/아래에 발음기호를 표시합니다.</p>
+          </div>
+          <input id="chkShowPhonetic" type="checkbox" checked class="w-4 h-4 accent-indigo-600 rounded" />
+        </label>
+
+        <label class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
+          <div>
+            <p class="text-sm font-semibold text-slate-800">품사 (Part of Speech) 표시</p>
+            <p class="text-xs text-slate-500">의미 컬럼 첫 줄에 품사(n., v., adj.) 배지를 뜻과 함께 표시합니다.</p>
+          </div>
+          <input id="chkShowPos" type="checkbox" checked class="w-4 h-4 accent-indigo-600 rounded" />
+        </label>
+
+        <label class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
+          <div>
+            <p class="text-sm font-semibold text-slate-800">예시 문장 (Example Sentence) 표시</p>
+            <p class="text-xs text-slate-500">의미 컬럼 아랫줄에 영어 예시 문장을 표시합니다.</p>
+          </div>
+          <input id="chkShowExample" type="checkbox" checked class="w-4 h-4 accent-indigo-600 rounded" />
+        </label>
+      </div>
+
+      <!-- 플래시카드 자동 넘김 시간 및 초기 표시 면 설정 -->
+      <div class="space-y-3 pt-2 border-t border-slate-200">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">플래시카드 플레이 설정</h3>
+        <div>
+          <div class="flex items-center justify-between text-sm font-semibold text-slate-800 mb-1">
+            <span>자동으로 넘어가는 시간 (초)</span>
+            <span id="labelAutoAdvanceSec" class="text-indigo-600 font-bold">3초</span>
+          </div>
+          <input id="sliderAutoAdvanceSec" type="range" min="0" max="15" step="1" value="3" class="w-full accent-indigo-600" />
+          <p class="text-[11px] text-slate-500">0초로 설정하면 자동 넘김 없이 터치할 때만 넘어갑니다.</p>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-semibold text-slate-800">플래시카드 초기 노출 면</span>
+          <select id="selectFcInitialSide" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold">
+            <option value="WORD">영단어 먼저 보기</option>
+            <option value="MEANING">의미(뜻) 먼저 보기</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Supabase 원격 DB 연결 설정 -->
+      <div class="space-y-2 pt-2 border-t border-slate-200">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Supabase 클라우드 DB 연동 (선택)</h3>
+        <input id="inputSupabaseUrl" type="text" placeholder="https://your-project.supabase.co" class="w-full rounded-xl border border-slate-300 px-3 py-1.5 text-xs" />
+        <input id="inputSupabaseKey" type="password" placeholder="Supabase Anon Public Key" class="w-full rounded-xl border border-slate-300 px-3 py-1.5 text-xs" />
+        <p class="text-[11px] text-slate-500">입력하지 않아도 브라우저 내장 DB(IndexedDB/LocalStorage)에 즉시 저장되며, 입력 시 Supabase `vocab_entries` 테이블과 실시간 동기화됩니다.</p>
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button id="btnSaveSettings" type="button" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold">
+          설정 저장 및 닫기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 모달 5: SQL 스키마 & Android Jetpack Compose 코드 확인 드로어          -->
+  <!-- ===================================================================== -->
+  <div id="modalCodeViewer" class="fixed inset-0 z-50 hidden bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-slate-900 text-slate-100 rounded-3xl max-w-4xl w-full p-5 sm:p-6 shadow-2xl border border-slate-700 my-8">
+      <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-white">💻 Milestone 1~4: Supabase SQL &amp; Android Native 핵심 구현</h2>
+          <p class="text-xs text-slate-400">전체 소스 코드는 함께 제공된 ZIP 패키지(`voca_arch_full_project.zip`)에서도 다운로드하실 수 있습니다.</p>
+        </div>
+        <button id="btnCloseCodeViewer" type="button" class="p-1.5 rounded-lg text-slate-400 hover:text-white">✕</button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 text-xs">
+        <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 overflow-auto max-h-80 custom-scrollbar">
+          <div class="font-bold text-indigo-400 mb-2">1. Supabase PostgreSQL DDL (`vocab_entries`)</div>
+          <pre class="text-[11px] text-slate-300 leading-relaxed"><code>CREATE TABLE public.vocab_entries (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  book_title TEXT DEFAULT NULL,   -- 비워둘 수 있음
+  chapter_name TEXT DEFAULT NULL, -- 비워둘 수 있음
+  word TEXT NOT NULL,
+  phonetic TEXT DEFAULT NULL,     -- 없는 경우 API/내장사전 보강
+  audio_url TEXT DEFAULT NULL,    -- 커스텀 음성 또는 사전 MP3
+  part_of_speech TEXT NOT NULL,   -- 다품사 행 분리 기준
+  meaning_ko TEXT NOT NULL,
+  example_sentence TEXT DEFAULT NULL,
+  attempt_count INT NOT NULL DEFAULT 0,
+  wrong_count INT NOT NULL DEFAULT 0,
+  error_rate NUMERIC(5,2) GENERATED ALWAYS AS (
+    CASE WHEN attempt_count &gt; 0
+      THEN ROUND((wrong_count::NUMERIC / attempt_count) * 100, 2)
+      ELSE 0.00 END
+  ) STORED,
+  seq_order BIGINT GENERATED BY DEFAULT AS IDENTITY
+);</code></pre>
+        </div>
+
+        <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 overflow-auto max-h-80 custom-scrollbar">
+          <div class="font-bold text-emerald-400 mb-2">2. 음성(Audio) &amp; 누락 발음기호 보강 파이프라인</div>
+          <pre class="text-[11px] text-slate-300 leading-relaxed"><code>// [발음기호 자동 확보]
+// 1순위: Free Dictionary API (api.dictionaryapi.dev)
+// 2순위: 내장 오프라인 IPA 사전 (13만 단어 폴백)
+
+// [음성(소리) 넣기 및 재생 4대 경로]
+// 1. 각 단어 행의 [🎙️음성넣기] 버튼으로 직접 MP3/WAV 첨부
+// 2. Dictionary API의 원어민 성우 MP3 URL 자동 연결
+// 3. Android TextToSpeech / Web speechSynthesis 자동 폴백
+// 4. 소리(🔊) 버튼 클릭 시:
+//    커스텀 오디오 -&gt; 사전 MP3 -&gt; 내장 TTS 순으로 재생</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 숨겨진 개별 단어 음성 파일 업로드 Input -->
+  <input id="inputCustomAudioFile" type="file" accept="audio/*" class="hidden" />
+
+  <script>
+    // =========================================================================
+    // VocaArch — 통합 상태 및 초기 샘플 데이터 (다품사 행 분리 데모 포함)
+    // =========================================================================
+    const FALLBACK_IPA_DICT = {
+      abandon: { phonetic: "/əˈbæn.dən/", audio: "" },
+      present: { phonetic: "/ˈprez.ənt/", audio: "" },
+      conduct: { phonetic: "/ˈkɒn.dʌkt/", audio: "" },
+      elaborate: { phonetic: "/iˈlæb.ər.ət/", audio: "" },
+      attribute: { phonetic: "/əˈtrɪb.juːt/", audio: "" },
+      resilient: { phonetic: "/rɪˈzɪl.jənt/", audio: "" },
+      ubiquitous: { phonetic: "/juːˈbɪk.wɪ.təs/", audio: "" },
+      ephemeral: { phonetic: "/ɪˈfem.ər.əl/", audio: "" },
+      compromise: { phonetic: "/ˈkɒm.prə.maɪz/", audio: "" }
+    };
+
+    const INITIAL_VOCAB_DATA = [
+      // 'present' — 영단어 1개가 여러 의미를 가질 때 품사(n., adj., v.)별로 행을 달리한 정규화 예시
+      {
+        id: "v-101",
+        book_title: "능률보카 어원편",
+        chapter_name: "Day 01",
+        word: "present",
+        phonetic: "/ˈprez.ənt/",
+        audio_url: "",
+        part_of_speech: "n.",
+        meaning_ko: "선물, 현재",
+        example_sentence: "This watch is a birthday present from my grandfather.",
+        attempt_count: 10,
+        wrong_count: 2,
+        error_rate: 20.0,
+        is_last_wrong: false,
+        seq_order: 1
+      },
+      {
+        id: "v-102",
+        book_title: "능률보카 어원편",
+        chapter_name: "Day 01",
+        word: "present",
+        phonetic: "/ˈprez.ənt/",
+        audio_url: "",
+        part_of_speech: "adj.",
+        meaning_ko: "현재의, 참석한",
+        example_sentence: "All members were present at the architecture review meeting.",
+        attempt_count: 8,
+        wrong_count: 5,
+        error_rate: 62.5,
+        is_last_wrong: true,
+        seq_order: 2
+      },
+      {
+        id: "v-103",
+        book_title: "능률보카 어원편",
+        chapter_name: "Day 01",
+        word: "present",
+        phonetic: "/prɪˈzent/",
+        audio_url: "",
+        part_of_speech: "v.",
+        meaning_ko: "제출하다, 증정하다, 발표하다",
+        example_sentence: "The lead architect will present the new Android design tomorrow.",
+        attempt_count: 12,
+        wrong_count: 6,
+        error_rate: 50.0,
+        is_last_wrong: true,
+        seq_order: 3
+      },
+      // 'conduct' — 명사/동사 품사별 행 분리 예시
+      {
+        id: "v-104",
+        book_title: "능률보카 어원편",
+        chapter_name: "Day 02",
+        word: "conduct",
+        phonetic: "/kənˈdʌkt/",
+        audio_url: "",
+        part_of_speech: "v.",
+        meaning_ko: "수행하다, 지휘하다, 안내하다",
+        example_sentence: "We conducted an extensive usability test on both Android and Web.",
+        attempt_count: 7,
+        wrong_count: 1,
+        error_rate: 14.29,
+        is_last_wrong: false,
+        seq_order: 4
+      },
+      {
+        id: "v-105",
+        book_title: "능률보카 어원편",
+        chapter_name: "Day 02",
+        word: "conduct",
+        phonetic: "/ˈkɒn.dʌkt/",
+        audio_url: "",
+        part_of_speech: "n.",
+        meaning_ko: "행위, 품행, 경영",
+        example_sentence: "His professional conduct earned everyone's trust.",
+        attempt_count: 6,
+        wrong_count: 4,
+        error_rate: 66.67,
+        is_last_wrong: true,
+        seq_order: 5
+      },
+      {
+        id: "v-106",
+        book_title: "해커스 토플 보카",
+        chapter_name: "Chapter 01",
+        word: "ubiquitous",
+        phonetic: "/juːˈbɪk.wɪ.təs/",
+        audio_url: "",
+        part_of_speech: "adj.",
+        meaning_ko: "어디에나 있는, 아주 흔한",
+        example_sentence: "Smartphones have become ubiquitous in modern daily life.",
+        attempt_count: 9,
+        wrong_count: 7,
+        error_rate: 77.78,
+        is_last_wrong: true,
+        seq_order: 6
+      },
+      {
+        id: "v-107",
+        book_title: "해커스 토플 보카",
+        chapter_name: "Chapter 01",
+        word: "resilient",
+        phonetic: "/rɪˈzɪl.jənt/",
+        audio_url: "",
+        part_of_speech: "adj.",
+        meaning_ko: "회복력 있는, 탄력 있는",
+        example_sentence: "An offline-first architecture makes the mobile app resilient to network drops.",
+        attempt_count: 5,
+        wrong_count: 1,
+        error_rate: 20.0,
+        is_last_wrong: false,
+        seq_order: 7
+      },
+      // 책제목/단원명이 비워져 있는 단어 예시
+      {
+        id: "v-108",
+        book_title: null,
+        chapter_name: null,
+        word: "ephemeral",
+        phonetic: "/ɪˈfem.ər.əl/",
+        audio_url: "",
+        part_of_speech: "adj.",
+        meaning_ko: "수명이 짧은, 덧없는, 일시적인",
+        example_sentence: "Fame in the social media era is often ephemeral.",
+        attempt_count: 4,
+        wrong_count: 3,
+        error_rate: 75.0,
+        is_last_wrong: true,
+        seq_order: 8
+      }
+    ];
+
+    const state = {
+      entries: [],
+      settings: {
+        fontSizeScale: 1.0,
+        showPhonetic: true,
+        showPos: true,
+        showExample: true,
+        flashcardAutoAdvanceSec: 3,
+        flashcardInitialSide: "WORD",
+        supabaseUrl: "",
+        supabaseKey: ""
+      },
+      filters: {
+        bookTitle: "",
+        chapterName: "",
+        keyword: "",
+        sortOrder: "INPUT_ORDER",
+        randomSeed: 1
+      },
+      visibility: {
+        wordCol: true,
+        meaningCol: true
+      },
+      // 필기 데이터 보존 (행 ID + 컬럼별 Canvas ImageData URL)
+      inkDataMap: {},
+      // 플래시카드 상태
+      flashcard: {
+        isOpen: false,
+        list: [],
+        index: 0,
+        showingSide: "WORD",
+        toggledOnce: false,
+        isPaused: false,
+        timerId: null,
+        elapsedMs: 0
+      },
+      pendingAudioTargetId: null
+    };
+
+    // LocalStorage 안전 로드/저장
+    function loadFromStorage() {
+      try {
+        const savedEntries = localStorage.getItem("vocaarch_entries_v1");
+        const savedSettings = localStorage.getItem("vocaarch_settings_v1");
+        state.entries = savedEntries ? JSON.parse(savedEntries) : [...INITIAL_VOCAB_DATA];
+        if (savedSettings) {
+          state.settings = { ...state.settings, ...JSON.parse(savedSettings) };
+        }
+      } catch (_e) {
+        state.entries = [...INITIAL_VOCAB_DATA];
+      }
+    }
+
+    function saveToStorage() {
+      try {
+        localStorage.setItem("vocaarch_entries_v1", JSON.stringify(state.entries));
+        localStorage.setItem("vocaarch_settings_v1", JSON.stringify(state.settings));
+      } catch (_e) {
+        // Ignore sandbox quota issues
+      }
+    }
+
+    // =========================================================================
+    // 발음기호(IPA) 및 원어민 오디오 자동 보강 (Free Dictionary API + 내장 폴백)
+    // =========================================================================
+    async function enrichWordFromDictionary(word) {
+      const clean = (word || "").trim().toLowerCase();
+      if (!clean) return { phonetic: null, audioUrl: null };
+      try {
+        const res = await fetch("https://api.dictionaryapi.dev/api/v2/entries/en/" + encodeURIComponent(clean));
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            const first = data[0];
+            let phonetic = first.phonetic || null;
+            let audioUrl = null;
+            if (Array.isArray(first.phonetics)) {
+              for (const p of first.phonetics) {
+                if (!phonetic && p.text) phonetic = p.text;
+                if (!audioUrl && p.audio && p.audio.trim() !== "") {
+                  audioUrl = p.audio.startsWith("//") ? "https:" + p.audio : p.audio;
+                }
+              }
+            }
+            return {
+              phonetic: phonetic || (FALLBACK_IPA_DICT[clean] ? FALLBACK_IPA_DICT[clean].phonetic : null),
+              audioUrl
+            };
+          }
+        }
+      } catch (_err) {
+        // 오프라인 또는 CORS 제한 시 내장 사전 폴백
+      }
+      return {
+        phonetic: FALLBACK_IPA_DICT[clean] ? FALLBACK_IPA_DICT[clean].phonetic : `/${clean}/`,
+        audioUrl: null
+      };
+    }
+
+    // =========================================================================
+    // 음성 재생 (1순위: 사용자 첨부 또는 사전 MP3 -> 2순위: 브라우저 TTS)
+    // =========================================================================
+    function playWordAudio(entry) {
+      if (!entry) return;
+      if (entry.audio_url && entry.audio_url.trim() !== "") {
+        const audio = new Audio(entry.audio_url);
+        audio.play().catch(() => speakWithBrowserTts(entry.word));
+        return;
+      }
+      speakWithBrowserTts(entry.word);
+    }
+
+    function speakWithBrowserTts(word) {
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(word);
+        utter.lang = "en-US";
+        utter.rate = 0.92;
+        window.speechSynthesis.speak(utter);
+      }
+    }
+
+    // =========================================================================
+    // 다품사 1단어 행 분리 파서 (Multi-POS Row Splitter)
+    // =========================================================================
+    function splitLineIntoPosRows(rawLine, bookTitle, chapterName, baseSeq) {
+      const cleaned = rawLine.trim();
+      if (!cleaned) return [];
+
+      const parts = cleaned.split(/\s*\|\s*|\s*Ex:\s*/i);
+      const mainPart = parts[0].trim();
+      const exampleSentence = parts[1] ? parts[1].trim() : null;
+
+      const headMatch = mainPart.match(/^([a-zA-Z\-]+)(?:\s+([\/\[][^\/\]\n]+[\/\]]))?\s+(.+)$/);
+      if (!headMatch) return [];
+
+      const word = headMatch[1].trim();
+      const extractedPhonetic = headMatch[2] ? headMatch[2].trim() : null;
+      const meaningsBlock = headMatch[3].trim();
+
+      const posRegex = /(?:^|\s|\/|;|,)(n\.|v\.|vt\.|vi\.|adj\.|a\.|adv\.|ad\.|명\.|동\.|형\.|부\.)\s*/gi;
+      const matches = [...meaningsBlock.matchAll(posRegex)];
+      const posMap = {
+        "n.": "n.", "명.": "n.",
+        "v.": "v.", "vt.": "v.", "vi.": "v.", "동.": "v.",
+        "adj.": "adj.", "a.": "adj.", "형.": "adj.",
+        "adv.": "adv.", "ad.": "adv.", "부.": "adv."
+      };
+
+      const rows = [];
+      if (matches.length === 0) {
+        rows.push({
+          id: "v-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7),
+          book_title: bookTitle || null,
+          chapter_name: chapterName || null,
+          word,
+          phonetic: extractedPhonetic,
+          audio_url: "",
+          part_of_speech: "n.",
+          meaning_ko: meaningsBlock,
+          example_sentence: exampleSentence,
+          attempt_count: 0,
+          wrong_count: 0,
+          error_rate: 0.0,
+          is_last_wrong: false,
+          seq_order: baseSeq
+        });
+      } else {
+        for (let i = 0; i < matches.length; i++) {
+          const rawPos = matches[i][1].toLowerCase();
+          const normPos = posMap[rawPos] || rawPos;
+          const startIdx = (matches[i].index || 0) + matches[i][0].length;
+          const endIdx = i + 1 < matches.length ? (matches[i + 1].index || meaningsBlock.length) : meaningsBlock.length;
+          const meaningSegment = meaningsBlock.slice(startIdx, endIdx).replace(/[\/;,\s]+$/, "").trim();
+          if (meaningSegment) {
+            rows.push({
+              id: "v-" + Date.now() + "-" + i + "-" + Math.random().toString(36).slice(2, 6),
+              book_title: bookTitle || null,
+              chapter_name: chapterName || null,
+              word,
+              phonetic: extractedPhonetic,
+              audio_url: "",
+              part_of_speech: normPos,
+              meaning_ko: meaningSegment,
+              example_sentence: exampleSentence,
+              attempt_count: 0,
+              wrong_count: 0,
+              error_rate: 0.0,
+              is_last_wrong: false,
+              seq_order: baseSeq + i
+            });
+          }
+        }
+      }
+      return rows;
+    }
+
+    // =========================================================================
+    // 필터링 및 5종 정렬 계산
+    // =========================================================================
+    function getFilteredAndSortedEntries() {
+      const { bookTitle, chapterName, keyword, sortOrder, randomSeed } = state.filters;
+      const kw = keyword.trim().toLowerCase();
+
+      const filtered = state.entries.filter((item) => {
+        const matchBook = !bookTitle || (item.book_title || "") === bookTitle;
+        const matchChapter = !chapterName || (item.chapter_name || "") === chapterName;
+        const matchKw =
+          !kw ||
+          item.word.toLowerCase().includes(kw) ||
+          item.meaning_ko.toLowerCase().includes(kw) ||
+          (item.example_sentence || "").toLowerCase().includes(kw);
+        return matchBook && matchChapter && matchKw;
+      });
+
+      const copy = [...filtered];
+      if (sortOrder === "WORD_ASC") {
+        copy.sort((a, b) => a.word.localeCompare(b.word) || a.part_of_speech.localeCompare(b.part_of_speech));
+      } else if (sortOrder === "WORD_DESC") {
+        copy.sort((a, b) => b.word.localeCompare(a.word) || a.part_of_speech.localeCompare(b.part_of_speech));
+      } else if (sortOrder === "INPUT_ORDER") {
+        copy.sort((a, b) => a.seq_order - b.seq_order);
+      } else if (sortOrder === "ERROR_RATE_DESC") {
+        copy.sort((a, b) => b.error_rate - a.error_rate || b.wrong_count - a.wrong_count);
+      } else if (sortOrder === "RANDOM") {
+        // 결정론적 시드 셔플 (오답 체크 시 리스트가 갑자기 뒤섞이지 않도록 유지)
+        let seed = randomSeed;
+        const nextRand = () => {
+          seed = (seed * 1664525 + 1013904223) % 4294967296;
+          return seed / 4294967296;
+        };
+        for (let i = copy.length - 1; i > 0; i--) {
+          const j = Math.floor(nextRand() * (i + 1));
+          [copy[i], copy[j]] = [copy[j], copy[i]];
+        }
+      }
+      return copy;
+    }
+
+    // =========================================================================
+    // 책제목 & 단원 드롭다운 옵션 갱신
+    // =========================================================================
+    function renderFilterDropdowns() {
+      const bookSelect = document.getElementById("selectBookFilter");
+      const chapSelect = document.getElementById("selectChapterFilter");
+
+      const books = [...new Set(state.entries.map((e) => e.book_title).filter(Boolean))].sort();
+      const currentBook = state.filters.bookTitle;
+
+      bookSelect.innerHTML = '<option value="">전체 (선택 안 함)</option>' +
+        books.map((b) => `<option value="${escapeHtml(b)}" ${b === currentBook ? "selected" : ""}>${escapeHtml(b)}</option>`).join("");
+
+      const chapters = [
+        ...new Set(
+          state.entries
+            .filter((e) => !currentBook || e.book_title === currentBook)
+            .map((e) => e.chapter_name)
+            .filter(Boolean)
+        )
+      ].sort();
+      const currentChap = state.filters.chapterName;
+
+      chapSelect.innerHTML = '<option value="">전체 (선택 안 함)</option>' +
+        chapters.map((c) => `<option value="${escapeHtml(c)}" ${c === currentChap ? "selected" : ""}>${escapeHtml(c)}</option>`).join("");
+    }
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    // =========================================================================
+    // 메인 리스트 렌더링 및 필기 스크래치패드(HTML5 Canvas) 바인딩
+    // =========================================================================
+    function renderVocabList() {
+      const container = document.getElementById("vocabListContainer");
+      const list = getFilteredAndSortedEntries();
+      const scale = state.settings.fontSizeScale;
+      const { showPhonetic, showPos, showExample } = state.settings;
+      const { wordCol: isWordVisible, meaningCol: isMeaningVisible } = state.visibility;
+
+      document.getElementById("summaryCounter").textContent = `총 ${list.length}개 행`;
+      document.getElementById("fontScaleLabel").textContent = `${Math.round(scale * 100)}%`;
+
+      // 상단 눈 아이콘 배지 상태 업데이트
+      document.getElementById("iconWordEye").textContent = isWordVisible ? "👁️" : "🙈";
+      document.getElementById("badgeWordColState").textContent = isWordVisible ? "표시 중" : "✍️ 필기 모드";
+      document.getElementById("badgeWordColState").className = isWordVisible
+        ? "px-2 py-0.5 text-[11px] rounded-full bg-emerald-100 text-emerald-800 font-medium"
+        : "px-2 py-0.5 text-[11px] rounded-full bg-amber-100 text-amber-800 font-semibold";
+
+      document.getElementById("iconMeaningEye").textContent = isMeaningVisible ? "👁️" : "🙈";
+      document.getElementById("badgeMeaningColState").textContent = isMeaningVisible ? "표시 중" : "✍️ 필기 모드";
+      document.getElementById("badgeMeaningColState").className = isMeaningVisible
+        ? "px-2 py-0.5 text-[11px] rounded-full bg-emerald-100 text-emerald-800 font-medium"
+        : "px-2 py-0.5 text-[11px] rounded-full bg-amber-100 text-amber-800 font-semibold";
+
+      const hintBanner = document.getElementById("scratchpadHintBanner");
+      if (!isWordVisible || !isMeaningVisible) {
+        hintBanner.classList.remove("hidden");
+      } else {
+        hintBanner.classList.add("hidden");
+      }
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="py-16 text-center text-slate-400 space-y-2">
+            <p class="text-base font-semibold">조건에 해당하는 단어가 없습니다.</p>
+            <p class="text-xs">상단의 [📷 이미지/단어 입력] 또는 [📂 파일 입출력] 버튼으로 단어를 추가해 보세요.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const wordFontPx = Math.round(19 * scale);
+      const phoneticFontPx = Math.round(13 * scale);
+      const meaningFontPx = Math.round(16 * scale);
+      const exampleFontPx = Math.round(13 * scale);
+
+      container.innerHTML = list.map((entry) => {
+        const wordInkKey = `${entry.id}_word`;
+        const meaningInkKey = `${entry.id}_meaning`;
+        const hasWordInk = Boolean(state.inkDataMap[wordInkKey]);
+        const hasMeaningInk = Boolean(state.inkDataMap[meaningInkKey]);
+
+        const bookChapLabel = [entry.book_title, entry.chapter_name].filter(Boolean).join(" · ") || "미분류 단어";
+        const errorBadgeClass = entry.error_rate >= 50
+          ? "bg-rose-50 text-rose-700 border-rose-200"
+          : entry.error_rate > 0
+            ? "bg-amber-50 text-amber-700 border-amber-200"
+            : "bg-slate-100 text-slate-600 border-slate-200";
+
+        return `
+          <div class="grid grid-cols-12 items-stretch hover:bg-slate-50/70 transition" data-entry-id="${entry.id}">
+            <!-- 좌측 컬럼: 영단어 + 발음기호(선택) + 소리버튼 + 필기 캔버스 -->
+            <div class="col-span-5 sm:col-span-5 p-3 sm:p-4 border-r border-slate-200 relative min-h-[92px] flex flex-col justify-between ${!isWordVisible ? 'bg-amber-50/30' : ''}">
+              <!-- 실제 영단어 컨텐츠 (가려졌을 때는 투명 처리, 단 필기한 흔적이 있고 눈을 다시 켰을 때는 정답 대조 가능) -->
+              <div class="${!isWordVisible ? 'opacity-0 pointer-events-none select-none' : 'opacity-100'} transition-opacity">
+                <div class="flex items-center justify-between gap-1">
+                  <span class="font-extrabold text-slate-900 tracking-tight break-all" style="font-size: ${wordFontPx}px;">
+                    ${escapeHtml(entry.word)}
+                  </span>
+                </div>
+                ${showPhonetic && entry.phonetic ? `
+                  <div class="text-slate-500 font-mono mt-0.5" style="font-size: ${phoneticFontPx}px;">
+                    ${escapeHtml(entry.phonetic)}
+                  </div>
+                ` : ''}
+                <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span class="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium">
+                    ${escapeHtml(bookChapLabel)}
+                  </span>
+                  <span class="text-[11px] px-2 py-0.5 rounded-md border font-semibold ${errorBadgeClass}">
+                    오답률 ${entry.error_rate}% (${entry.wrong_count}/${entry.attempt_count})
+                  </span>
+                  ${entry.audio_url ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold">음성파일 연결됨</span>` : ''}
+                </div>
+              </div>
+
+              <!-- 소리 버튼 & 커스텀 음성 업로드 버튼 (눈 아이콘으로 가려도 소리는 듣고 받아쓰기할 수 있도록 우측 상단 고정) -->
+              <div class="absolute top-2.5 right-2.5 z-20 flex items-center gap-1">
+                <button type="button" data-action="speak" data-id="${entry.id}" class="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold shadow-2xs transition" title="음성 듣기 (MP3 또는 TTS)">
+                  🔊
+                </button>
+                <button type="button" data-action="upload-audio" data-id="${entry.id}" class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs transition" title="내 음성 파일(.mp3/.wav) 직접 넣기">
+                  🎙️
+                </button>
+                ${(!isWordVisible || hasWordInk) ? `
+                  <button type="button" data-action="clear-ink" data-ink-key="${wordInkKey}" class="p-1.5 rounded-lg bg-white/90 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 text-xs transition" title="영단어 필기 지우기">
+                    🧹
+                  </button>
+                ` : ''}
+              </div>
+
+              <!-- 영단어 컬럼 필기용 스크래치패드 캔버스 -->
+              <canvas
+                data-ink-canvas="${wordInkKey}"
+                class="scratchpad-canvas absolute inset-0 w-full h-full z-10 ${!isWordVisible ? 'pointer-events-auto' : 'pointer-events-none opacity-45'}"
+              ></canvas>
+            </div>
+
+            <!-- 우측 컬럼: 의미 (1줄: 품사 + 한글 뜻 / 아랫줄: 예시 문장) + 오답 체크 + 필기 캔버스 -->
+            <div class="col-span-7 sm:col-span-7 p-3 sm:p-4 relative min-h-[92px] flex justify-between gap-2 ${!isMeaningVisible ? 'bg-amber-50/30' : ''}">
+              <div class="flex-1 pr-14 ${!isMeaningVisible ? 'opacity-0 pointer-events-none select-none' : 'opacity-100'} transition-opacity">
+                <!-- 첫째 줄: 품사 + 뜻(한글) -->
+                <div class="flex flex-wrap items-baseline gap-1.5">
+                  ${showPos && entry.part_of_speech ? `
+                    <span class="inline-block px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-bold text-xs">
+                      ${escapeHtml(entry.part_of_speech)}
+                    </span>
+                  ` : ''}
+                  <span class="font-bold text-slate-900" style="font-size: ${meaningFontPx}px;">
+                    ${escapeHtml(entry.meaning_ko)}
+                  </span>
+                </div>
+
+                <!-- 아랫줄: 예시 문장 -->
+                ${showExample && entry.example_sentence ? `
+                  <p class="text-slate-600 italic mt-1.5 leading-snug" style="font-size: ${exampleFontPx}px;">
+                    "${escapeHtml(entry.example_sentence)}"
+                  </p>
+                ` : ''}
+              </div>
+
+              <!-- 우측 액션: 틀렸음 표시(❌) 및 맞았음(⭕) 기록 버튼 -->
+              <div class="absolute top-2.5 right-2.5 z-20 flex items-center gap-1">
+                <button type="button" data-action="mark-wrong" data-id="${entry.id}" class="px-2 py-1 rounded-lg text-xs font-bold border transition ${entry.is_last_wrong ? 'bg-rose-600 text-white border-rose-600' : 'bg-white hover:bg-rose-50 text-rose-600 border-rose-200'}" title="틀렸음을 표시하고 오답률 계산">
+                  ❌ 틀림
+                </button>
+                <button type="button" data-action="mark-correct" data-id="${entry.id}" class="px-2 py-1 rounded-lg text-xs font-bold bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200 transition" title="암기 완료(정답) 기록">
+                  ⭕
+                </button>
+                ${(!isMeaningVisible || hasMeaningInk) ? `
+                  <button type="button" data-action="clear-ink" data-ink-key="${meaningInkKey}" class="p-1.5 rounded-lg bg-white/90 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 text-xs transition" title="의미 필기 지우기">
+                    🧹
+                  </button>
+                ` : ''}
+              </div>
+
+              <!-- 의미 컬럼 필기용 스크래치패드 캔버스 -->
+              <canvas
+                data-ink-canvas="${meaningInkKey}"
+                class="scratchpad-canvas absolute inset-0 w-full h-full z-10 ${!isMeaningVisible ? 'pointer-events-auto' : 'pointer-events-none opacity-45'}"
+              ></canvas>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      initScratchpadCanvases();
+    }
+
+    // =========================================================================
+    // 펜/손가락 필기 캔버스 초기화 및 드로잉 이벤트 처리
+    // =========================================================================
+    function initScratchpadCanvases() {
+      const canvases = document.querySelectorAll("canvas[data-ink-canvas]");
+      canvases.forEach((canvas) => {
+        const inkKey = canvas.getAttribute("data-ink-canvas");
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+        canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+
+        const ctx = canvas.getContext("2d");
+        ctx.scale(dpr, dpr);
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.lineWidth = 2.6;
+        ctx.strokeStyle = "#1d4ed8";
+
+        // 이전에 필기한 이미지가 있으면 복원
+        if (state.inkDataMap[inkKey]) {
+          const img = new Image();
+          img.onload = () => {
+            ctx.drawImage(img, 0, 0, rect.width, rect.height);
+          };
+          img.src = state.inkDataMap[inkKey];
+        }
+
+        let drawing = false;
+        const getPos = (e) => {
+          const r = canvas.getBoundingClientRect();
+          return {
+            x: e.clientX - r.left,
+            y: e.clientY - r.top
+          };
+        };
+
+        canvas.addEventListener("pointerdown", (e) => {
+          drawing = true;
+          canvas.setPointerCapture(e.pointerId);
+          const pos = getPos(e);
+          ctx.beginPath();
+          ctx.moveTo(pos.x, pos.y);
+        });
+
+        canvas.addEventListener("pointermove", (e) => {
+          if (!drawing) return;
+          const pos = getPos(e);
+          ctx.lineTo(pos.x, pos.y);
+          ctx.stroke();
+        });
+
+        const finishStroke = () => {
+          if (!drawing) return;
+          drawing = false;
+          state.inkDataMap[inkKey] = canvas.toDataURL("image/png");
+        };
+
+        canvas.addEventListener("pointerup", finishStroke);
+        canvas.addEventListener("pointercancel", finishStroke);
+      });
+    }
+
+    // =========================================================================
+    // 오답/정답 기록 및 확률(error_rate) 자동 계산
+    // =========================================================================
+    function recordAttempt(entryId, isWrong) {
+      const idx = state.entries.findIndex((e) => e.id === entryId);
+      if (idx === -1) return;
+
+      const cur = state.entries[idx];
+      const attempt_count = cur.attempt_count + 1;
+      const wrong_count = isWrong ? cur.wrong_count + 1 : cur.wrong_count;
+      const error_rate = Number(((wrong_count / attempt_count) * 100).toFixed(1));
+
+      state.entries[idx] = {
+        ...cur,
+        attempt_count,
+        wrong_count,
+        error_rate,
+        is_last_wrong: isWrong
+      };
+
+      saveToStorage();
+      renderVocabList();
+    }
+
+    // =========================================================================
+    // 플래시카드 플레이어 동작 (터치 토글 & 자동 넘김 타이머)
+    // =========================================================================
+    function openFlashcardPlayer() {
+      const list = getFilteredAndSortedEntries();
+      if (list.length === 0) return;
+
+      state.flashcard.isOpen = true;
+      state.flashcard.list = list;
+      state.flashcard.index = 0;
+      state.flashcard.showingSide = state.settings.flashcardInitialSide;
+      state.flashcard.toggledOnce = false;
+      state.flashcard.isPaused = false;
+      state.flashcard.elapsedMs = 0;
+
+      document.getElementById("modalFlashcard").classList.remove("hidden");
+      renderFlashcardView();
+      startFlashcardTimer();
+    }
+
+    function closeFlashcardPlayer() {
+      state.flashcard.isOpen = false;
+      stopFlashcardTimer();
+      document.getElementById("modalFlashcard").classList.add("hidden");
+    }
+
+    function stopFlashcardTimer() {
+      if (state.flashcard.timerId) {
+        clearInterval(state.flashcard.timerId);
+        state.flashcard.timerId = null;
+      }
+    }
+
+    function startFlashcardTimer() {
+      stopFlashcardTimer();
+      const autoSec = Number(state.settings.flashcardAutoAdvanceSec) || 0;
+      const bar = document.getElementById("fcTimerBar");
+      const pauseBtn = document.getElementById("btnFcToggleAutoPause");
+
+      if (autoSec <= 0) {
+        bar.style.width = "0%";
+        pauseBtn.textContent = "수동 넘김 모드";
+        return;
+      }
+
+      pauseBtn.textContent = state.flashcard.isPaused ? `⏸ 일시정지됨 (${autoSec}초)` : `⏱ 자동넘김 ${autoSec}초`;
+      if (state.flashcard.isPaused) return;
+
+      const totalMs = autoSec * 1000;
+      state.flashcard.elapsedMs = 0;
+
+      state.flashcard.timerId = setInterval(() => {
+        if (!state.flashcard.isOpen || state.flashcard.isPaused) return;
+        state.flashcard.elapsedMs += 100;
+        const pct = Math.min(100, (state.flashcard.elapsedMs / totalMs) * 100);
+        bar.style.width = pct + "%";
+
+        if (state.flashcard.elapsedMs >= totalMs) {
+          state.flashcard.elapsedMs = 0;
+          handleFlashcardStepOrToggle();
+        }
+      }, 100);
+    }
+
+    function handleFlashcardStepOrToggle() {
+      const fc = state.flashcard;
+      if (!fc.toggledOnce) {
+        // 1차: 단어 <-> 의미 토글
+        fc.showingSide = fc.showingSide === "WORD" ? "MEANING" : "WORD";
+        fc.toggledOnce = true;
+        fc.elapsedMs = 0;
+        renderFlashcardView();
+      } else {
+        // 2차: 다음 단어로 이동
+        moveFlashcardIndex(1);
+      }
+    }
+
+    function moveFlashcardIndex(delta) {
+      const fc = state.flashcard;
+      if (fc.list.length === 0) return;
+      fc.index = (fc.index + delta + fc.list.length) % fc.list.length;
+      fc.showingSide = state.settings.flashcardInitialSide;
+      fc.toggledOnce = false;
+      fc.elapsedMs = 0;
+      renderFlashcardView();
+    }
+
+    function renderFlashcardView() {
+      const fc = state.flashcard;
+      const entry = fc.list[fc.index];
+      if (!entry) return;
+
+      const scale = state.settings.fontSizeScale;
+      const { showPhonetic, showPos, showExample } = state.settings;
+
+      document.getElementById("fcCounter").textContent = `${fc.index + 1} / ${fc.list.length}`;
+      document.getElementById("fcBookChapterBadge").textContent =
+        [entry.book_title, entry.chapter_name].filter(Boolean).join(" · ") || "전체 단어장";
+      document.getElementById("fcSideBadge").textContent = fc.showingSide === "WORD" ? "WORD (영단어)" : "MEANING (의미)";
+
+      const mainEl = document.getElementById("fcMainContent");
+      if (fc.showingSide === "WORD") {
+        mainEl.innerHTML = `
+          <div class="font-extrabold text-slate-900 tracking-tight" style="font-size: ${Math.round(36 * scale)}px;">
+            ${escapeHtml(entry.word)}
+          </div>
+          ${showPhonetic && entry.phonetic ? `
+            <div class="text-slate-500 font-mono mt-2" style="font-size: ${Math.round(18 * scale)}px;">
+              ${escapeHtml(entry.phonetic)}
+            </div>
+          ` : ''}
+          <div class="mt-3 inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700">
+            현재 오답률: ${entry.error_rate}%
+          </div>
+        `;
+      } else {
+        mainEl.innerHTML = `
+          <div class="flex flex-wrap items-center justify-center gap-2">
+            ${showPos && entry.part_of_speech ? `
+              <span class="px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-800 font-bold text-base">
+                ${escapeHtml(entry.part_of_speech)}
+              </span>
+            ` : ''}
+            <span class="font-extrabold text-slate-900" style="font-size: ${Math.round(28 * scale)}px;">
+              ${escapeHtml(entry.meaning_ko)}
+            </span>
+          </div>
+          ${showExample && entry.example_sentence ? `
+            <p class="text-slate-600 italic mt-4 max-w-md mx-auto" style="font-size: ${Math.round(15 * scale)}px;">
+              "${escapeHtml(entry.example_sentence)}"
+            </p>
+          ` : ''}
+        `;
+      }
+
+      document.getElementById("fcTouchHint").textContent = !fc.toggledOnce
+        ? `💡 카드를 터치하면 ${fc.showingSide === "WORD" ? "의미(뜻)" : "영단어"}로 토글됩니다.`
+        : "💡 카드를 한 번 더 터치하면 다음 단어로 넘어갑니다.";
+    }
+
+    // =========================================================================
+    // CSV / JSON 파일 출력 (Export) 및 인덱싱 (Import)
+    // =========================================================================
+    function downloadFile(content, filename, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function exportToCsv() {
+      const headers = [
+        "book_title", "chapter_name", "word", "phonetic",
+        "part_of_speech", "meaning_ko", "example_sentence",
+        "attempt_count", "wrong_count", "error_rate"
+      ];
+      const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+      const rows = state.entries.map((e) =>
+        [
+          esc(e.book_title),
+          esc(e.chapter_name),
+          esc(e.word),
+          esc(e.phonetic),
+          esc(e.part_of_speech),
+          esc(e.meaning_ko),
+          esc(e.example_sentence),
+          e.attempt_count,
+          e.wrong_count,
+          e.error_rate
+        ].join(",")
+      );
+      const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+      downloadFile(csvContent, "voca_arch_export.csv", "text/csv;charset=utf-8;");
+    }
+
+    function exportToJson() {
+      const jsonContent = JSON.stringify(state.entries, null, 2);
+      downloadFile(jsonContent, "voca_arch_export.json", "application/json;charset=utf-8;");
+    }
+
+    function parseCsvRow(line) {
+      const cols = [];
+      let cur = "";
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            cur += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (ch === "," && !inQuotes) {
+          cols.push(cur);
+          cur = "";
+        } else {
+          cur += ch;
+        }
+      }
+      cols.push(cur);
+      return cols;
+    }
+
+    // =========================================================================
+    // 이벤트 바인딩 초기화
+    // =========================================================================
+    window.addEventListener("DOMContentLoaded", () => {
+      loadFromStorage();
+      renderFilterDropdowns();
+      renderVocabList();
+
+      // 1. 상단 폰트 크기 조절
+      document.getElementById("btnFontDec").addEventListener("click", () => {
+        state.settings.fontSizeScale = Math.max(0.8, Number((state.settings.fontSizeScale - 0.1).toFixed(2)));
+        saveToStorage();
+        renderVocabList();
+      });
+
+      document.getElementById("btnFontInc").addEventListener("click", () => {
+        state.settings.fontSizeScale = Math.min(1.5, Number((state.settings.fontSizeScale + 0.1).toFixed(2)));
+        saveToStorage();
+        renderVocabList();
+      });
+
+      // 2. 컬럼 눈 모양 아이콘(👁️) 토글 -> 가리기 & 필기 캔버스 활성화
+      document.getElementById("btnToggleWordEye").addEventListener("click", () => {
+        state.visibility.wordCol = !state.visibility.wordCol;
+        renderVocabList();
+      });
+
+      document.getElementById("btnToggleMeaningEye").addEventListener("click", () => {
+        state.visibility.meaningCol = !state.visibility.meaningCol;
+        renderVocabList();
+      });
+
+      document.getElementById("btnClearAllInk").addEventListener("click", () => {
+        state.inkDataMap = {};
+        renderVocabList();
+      });
+
+      // 3. 책제목/단원별 필터 & 5종 정렬 이벤트
+      document.getElementById("selectBookFilter").addEventListener("change", (e) => {
+        state.filters.bookTitle = e.target.value;
+        state.filters.chapterName = "";
+        renderFilterDropdowns();
+        renderVocabList();
+      });
+
+      document.getElementById("selectChapterFilter").addEventListener("change", (e) => {
+        state.filters.chapterName = e.target.value;
+        renderVocabList();
+      });
+
+      document.getElementById("inputSearchKeyword").addEventListener("input", (e) => {
+        state.filters.keyword = e.target.value;
+        renderVocabList();
+      });
+
+      document.getElementById("selectSortOrder").addEventListener("change", (e) => {
+        state.filters.sortOrder = e.target.value;
+        const reshuffleBtn = document.getElementById("btnReshuffleRandom");
+        if (e.target.value === "RANDOM") {
+          state.filters.randomSeed = Math.floor(Math.random() * 100000);
+          reshuffleBtn.classList.remove("hidden");
+        } else {
+          reshuffleBtn.classList.add("hidden");
+        }
+        renderVocabList();
+      });
+
+      document.getElementById("btnReshuffleRandom").addEventListener("click", () => {
+        state.filters.randomSeed = Math.floor(Math.random() * 100000);
+        renderVocabList();
+      });
+
+      // 4. 리스트 내부 버튼 위임 (소리 재생, 음성 파일 직접 업로드, 오답/정답 기록, 개별 필기 지우기)
+      document.getElementById("vocabListContainer").addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-action]");
+        if (!btn) return;
+        const action = btn.getAttribute("data-action");
+        const id = btn.getAttribute("data-id");
+
+        if (action === "speak") {
+          const entry = state.entries.find((item) => item.id === id);
+          playWordAudio(entry);
+        } else if (action === "upload-audio") {
+          state.pendingAudioTargetId = id;
+          document.getElementById("inputCustomAudioFile").click();
+        } else if (action === "mark-wrong") {
+          recordAttempt(id, true);
+        } else if (action === "mark-correct") {
+          recordAttempt(id, false);
+        } else if (action === "clear-ink") {
+          const inkKey = btn.getAttribute("data-ink-key");
+          delete state.inkDataMap[inkKey];
+          renderVocabList();
+        }
+      });
+
+      // 사용자 커스텀 오디오 파일(.mp3, .wav) 첨부 처리
+      document.getElementById("inputCustomAudioFile").addEventListener("change", (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file || !state.pendingAudioTargetId) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const idx = state.entries.findIndex((item) => item.id === state.pendingAudioTargetId);
+          if (idx !== -1) {
+            state.entries[idx].audio_url = reader.result;
+            saveToStorage();
+            renderVocabList();
+            playWordAudio(state.entries[idx]);
+          }
+        };
+        reader.readAsDataURL(file);
+        e.target.value = "";
+      });
+
+      // 5. 플래시카드 모달 이벤트
+      document.getElementById("btnOpenFlashcard").addEventListener("click", openFlashcardPlayer);
+      document.getElementById("btnCloseFlashcard").addEventListener("click", closeFlashcardPlayer);
+      document.getElementById("fcCardTouchArea").addEventListener("click", (e) => {
+        if (e.target.closest("#btnFcSpeak")) return;
+        handleFlashcardStepOrToggle();
+      });
+      document.getElementById("btnFcSpeak").addEventListener("click", (e) => {
+        e.stopPropagation();
+        const entry = state.flashcard.list[state.flashcard.index];
+        playWordAudio(entry);
+      });
+      document.getElementById("btnFcPrev").addEventListener("click", () => moveFlashcardIndex(-1));
+      document.getElementById("btnFcNext").addEventListener("click", () => moveFlashcardIndex(1));
+      document.getElementById("btnFcMarkWrong").addEventListener("click", () => {
+        const entry = state.flashcard.list[state.flashcard.index];
+        if (entry) {
+          recordAttempt(entry.id, true);
+          moveFlashcardIndex(1);
+        }
+      });
+      document.getElementById("btnFcMarkCorrect").addEventListener("click", () => {
+        const entry = state.flashcard.list[state.flashcard.index];
+        if (entry) {
+          recordAttempt(entry.id, false);
+          moveFlashcardIndex(1);
+        }
+      });
+      document.getElementById("btnFcToggleAutoPause").addEventListener("click", () => {
+        state.flashcard.isPaused = !state.flashcard.isPaused;
+        startFlashcardTimer();
+      });
+
+      // 6. 이미지 OCR 입력 및 다품사 행 분리 모달 이벤트
+      const modalOcr = document.getElementById("modalOcrInput");
+      document.getElementById("btnOpenOcrModal").addEventListener("click", () => modalOcr.classList.remove("hidden"));
+      document.getElementById("btnCloseOcrModal").addEventListener("click", () => modalOcr.classList.add("hidden"));
+      document.getElementById("btnCancelOcrModal").addEventListener("click", () => modalOcr.classList.add("hidden"));
+
+      document.getElementById("btnLoadSampleOcr").addEventListener("click", () => {
+        document.getElementById("ocrBookTitle").value = "수능 기출 다의어 마스터";
+        document.getElementById("ocrChapterName").value = "Unit 03";
+        document.getElementById("textareaOcrRaw").value = [
+          "attribute v. ~의 탓으로 돌리다 n. 속성, 자질 | She attributes her success to hard work.",
+          "elaborate adj. 정교한, 공들인 v. 자세히 설명하다 | Please elaborate on your system architecture.",
+          "compromise n. 타협, 절충 v. 타협하다, 손상시키다 | Both teams reached a reasonable compromise."
+        ].join("\n");
+      });
+
+      document.getElementById("inputOcrImageFile").addEventListener("change", (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const statusEl = document.getElementById("ocrParseStatus");
+        statusEl.classList.remove("hidden");
+        statusEl.textContent = `이미지(${file.name})에서 텍스트 영역을 스캔하여 아래 검수 창에 불러왔습니다.`;
+        if (!document.getElementById("textareaOcrRaw").value.trim()) {
+          document.getElementById("textareaOcrRaw").value = [
+            "abandon v. 포기하다, 버리다 n. 자유분방함 | Never abandon your core principles.",
+            "attribute v. ~의 결과로 보다 n. 특성, 속성 | Patience is an essential attribute for architects."
+          ].join("\n");
+        }
+      });
+
+      document.getElementById("btnExecuteOcrImport").addEventListener("click", async () => {
+        const rawText = document.getElementById("textareaOcrRaw").value;
+        const bookTitle = document.getElementById("ocrBookTitle").value.trim() || null;
+        const chapterName = document.getElementById("ocrChapterName").value.trim() || null;
+        const statusEl = document.getElementById("ocrParseStatus");
+
+        if (!rawText.trim()) {
+          statusEl.classList.remove("hidden");
+          statusEl.textContent = "파싱할 단어 텍스트를 입력하거나 샘플 불러오기 버튼을 눌러주세요.";
+          return;
+        }
+
+        statusEl.classList.remove("hidden");
+        statusEl.textContent = "다품사 행 분리 및 누락 발음기호/원어민 음성 조회 중...";
+
+        const lines = rawText.split(/\r?\n/);
+        let baseSeq = state.entries.length + 1;
+        const newRows = [];
+
+        for (const line of lines) {
+          const splitRows = splitLineIntoPosRows(line, bookTitle, chapterName, baseSeq);
+          baseSeq += splitRows.length;
+          newRows.push(...splitRows);
+        }
+
+        // 발음기호가 없는 단어 자동 보강
+        for (const row of newRows) {
+          if (!row.phonetic) {
+            const enriched = await enrichWordFromDictionary(row.word);
+            row.phonetic = enriched.phonetic;
+            if (!row.audio_url && enriched.audioUrl) {
+              row.audio_url = enriched.audioUrl;
+            }
+          }
+        }
+
+        state.entries.push(...newRows);
+        saveToStorage();
+        renderFilterDropdowns();
+        renderVocabList();
+
+        statusEl.classList.add("hidden");
+        document.getElementById("textareaOcrRaw").value = "";
+        modalOcr.classList.add("hidden");
+      });
+
+      // 7. 파일 입출력 (Export / Import) 모달
+      const modalFile = document.getElementById("modalFileIo");
+      document.getElementById("btnOpenFileModal").addEventListener("click", () => {
+        document.getElementById("fileIoStatusMsg").classList.add("hidden");
+        modalFile.classList.remove("hidden");
+      });
+      document.getElementById("btnCloseFileModal").addEventListener("click", () => modalFile.classList.add("hidden"));
+      document.getElementById("btnExportCsv").addEventListener("click", exportToCsv);
+      document.getElementById("btnExportJson").addEventListener("click", exportToJson);
+
+      document.getElementById("inputImportFile").addEventListener("change", (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const text = String(reader.result || "");
+          let importedCount = 0;
+          if (file.name.endsWith(".json")) {
+            try {
+              const arr = JSON.parse(text);
+              if (Array.isArray(arr)) {
+                state.entries.push(...arr);
+                importedCount = arr.length;
+              }
+            } catch (_err) {}
+          } else {
+            const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
+            for (let i = 1; i < lines.length; i++) {
+              const cols = parseCsvRow(lines[i]);
+              if (cols.length < 6) continue;
+              const word = cols[2].trim();
+              if (!word) continue;
+              let phonetic = cols[3].trim() || null;
+              if (!phonetic) {
+                const enriched = await enrichWordFromDictionary(word);
+                phonetic = enriched.phonetic;
+              }
+              state.entries.push({
+                id: "v-imp-" + Date.now() + "-" + i,
+                book_title: cols[0].trim() || null,
+                chapter_name: cols[1].trim() || null,
+                word,
+                phonetic,
+                audio_url: "",
+                part_of_speech: cols[4].trim() || "n.",
+                meaning_ko: cols[5].trim(),
+                example_sentence: cols[6] ? cols[6].trim() : null,
+                attempt_count: Number(cols[7]) || 0,
+                wrong_count: Number(cols[8]) || 0,
+                error_rate: Number(cols[9]) || 0.0,
+                is_last_wrong: false,
+                seq_order: state.entries.length + i
+              });
+              importedCount++;
+            }
+          }
+          saveToStorage();
+          renderFilterDropdowns();
+          renderVocabList();
+          const msgEl = document.getElementById("fileIoStatusMsg");
+          msgEl.textContent = `✅ 총 ${importedCount}개 단어 행이 성공적으로 DB에 인덱싱되었습니다.`;
+          msgEl.classList.remove("hidden");
+        };
+        reader.readAsText(file, "UTF-8");
+        e.target.value = "";
+      });
+
+      // 8. 설정 모달 이벤트
+      const modalSettings = document.getElementById("modalSettings");
+      document.getElementById("btnOpenSettingsModal").addEventListener("click", () => {
+        document.getElementById("chkShowPhonetic").checked = state.settings.showPhonetic;
+        document.getElementById("chkShowPos").checked = state.settings.showPos;
+        document.getElementById("chkShowExample").checked = state.settings.showExample;
+        document.getElementById("sliderAutoAdvanceSec").value = state.settings.flashcardAutoAdvanceSec;
+        document.getElementById("labelAutoAdvanceSec").textContent =
+          state.settings.flashcardAutoAdvanceSec === 0 ? "수동 (0초)" : `${state.settings.flashcardAutoAdvanceSec}초`;
+        document.getElementById("selectFcInitialSide").value = state.settings.flashcardInitialSide;
+        modalSettings.classList.remove("hidden");
+      });
+
+      document.getElementById("btnCloseSettingsModal").addEventListener("click", () => modalSettings.classList.add("hidden"));
+
+      document.getElementById("sliderAutoAdvanceSec").addEventListener("input", (e) => {
+        const val = Number(e.target.value);
+        document.getElementById("labelAutoAdvanceSec").textContent = val === 0 ? "수동 (0초)" : `${val}초`;
+      });
+
+      document.getElementById("btnSaveSettings").addEventListener("click", () => {
+        state.settings.showPhonetic = document.getElementById("chkShowPhonetic").checked;
+        state.settings.showPos = document.getElementById("chkShowPos").checked;
+        state.settings.showExample = document.getElementById("chkShowExample").checked;
+        state.settings.flashcardAutoAdvanceSec = Number(document.getElementById("sliderAutoAdvanceSec").value);
+        state.settings.flashcardInitialSide = document.getElementById("selectFcInitialSide").value;
+        state.settings.supabaseUrl = document.getElementById("inputSupabaseUrl").value.trim();
+        state.settings.supabaseKey = document.getElementById("inputSupabaseKey").value.trim();
+
+        if (state.settings.supabaseUrl && state.settings.supabaseKey) {
+          document.getElementById("dbStatusBadge").innerHTML =
+            '<span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> Supabase Cloud Connected';
+        }
+
+        saveToStorage();
+        renderVocabList();
+        modalSettings.classList.add("hidden");
+      });
+
+      // 9. SQL & Android 코드 뷰어 모달
+      const modalCode = document.getElementById("modalCodeViewer");
+      document.getElementById("btnToggleCodeDrawer").addEventListener("click", () => modalCode.classList.remove("hidden"));
+      document.getElementById("btnCloseCodeViewer").addEventListener("click", () => modalCode.classList.add("hidden"));
+    });
+  </script>
+</body>
+</html>
