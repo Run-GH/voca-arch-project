@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VocaArch — 영단어 암기 마스터 (Web &amp; Android 통합 워크스페이스)</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <!-- Tesseract.js (클라이언트 온디바이스 OCR 라이브러리) -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -278,20 +280,69 @@
           </div>
         </div>
 
+        <!-- OCR 엔진 선택 & Gemini API 키 (선택사항) -->
+        <div class="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="font-bold text-slate-800">OCR 엔진:</span>
+            <div class="flex items-center gap-3">
+              <label class="flex items-center gap-1.5 cursor-pointer font-bold text-indigo-700">
+                <input type="radio" name="ocrEngineType" value="gemini" id="ocrRadioGemini" checked />
+                <span>🤖 Gemini Vision AI (추천: 복잡한 교재·뒷면비침 100% 완벽 인식)</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer font-medium text-slate-600">
+                <input type="radio" name="ocrEngineType" value="tesseract" id="ocrRadioTesseract" />
+                <span>⚡ Tesseract.js (로컬)</span>
+              </label>
+            </div>
+          </div>
+          <div id="geminiKeyArea" class="flex flex-wrap items-center gap-2 pt-1.5 border-t border-slate-200">
+            <span class="text-slate-500 font-medium">Gemini 키:</span>
+            <input id="inputGeminiApiKey" type="password" placeholder="Google AI Studio Gemini API 키 (입력 시 브라우저에 자동 저장)" class="flex-1 min-w-[220px] rounded-xl border border-slate-300 px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-[11px] transition">
+              무료 키 발급받기 ↗
+            </a>
+          </div>
+        </div>
+
         <!-- 이미지 파일 업로드 영역 -->
         <div class="p-3.5 rounded-2xl bg-indigo-50/60 border border-indigo-200 flex flex-wrap items-center justify-between gap-3">
           <div class="text-xs text-indigo-950">
-            <p class="font-bold">1단계: 단어장 이미지 파일 선택 또는 샘플 스캔 이미지 테스트</p>
-            <p class="text-indigo-700 mt-0.5">발음기호가 없는 이미지나 1단어에 여러 품사(n., v., adj.)가 적힌 이미지를 자동으로 분리합니다.</p>
+            <p class="font-bold">1단계: 단어장 이미지 파일 선택 또는 교재 스캔 이미지 테스트</p>
+            <p class="text-indigo-700 mt-0.5">선택한 OCR 엔진으로 단어장 속 영단어·품사·뜻·예문을 자동 추출합니다.</p>
           </div>
-          <div class="flex items-center gap-2">
-            <label class="cursor-pointer px-3 py-1.5 rounded-xl bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-300 font-semibold text-xs transition">
-              <span>🖼️ 이미지 파일 선택</span>
-              <input id="inputOcrImageFile" type="file" accept="image/*" class="hidden" />
+          <div class="flex flex-wrap items-center gap-2">
+            <label class="cursor-pointer px-3 py-1.5 rounded-xl bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-300 font-semibold text-xs shadow-2xs transition">
+              <span>🖼️ 이미지 파일 선택 (여러 장 복수 선택 가능)</span>
+              <input id="inputOcrImageFile" type="file" accept="image/*" multiple class="hidden" />
             </label>
-            <button id="btnLoadSampleOcr" type="button" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition">
-              ✨ 다품사/무발음기호 샘플 불러오기
+            <button id="btnLoadSampleOcr" type="button" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-2xs transition">
+              ✨ 다의어 샘플
             </button>
+          </div>
+        </div>
+
+        <!-- 이미지 미리보기 & OCR 실시간 진행 상태 바 -->
+        <div id="ocrPreviewAndProgress" class="hidden space-y-2.5 p-3 rounded-2xl bg-slate-50 border border-slate-200">
+          <div class="flex items-center justify-between text-xs text-slate-700">
+            <span class="font-bold flex items-center gap-1.5">
+              <span id="ocrStatusDot" class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+              <span id="ocrStatusTitle">이미지 OCR 분석 준비 중...</span>
+            </span>
+            <span id="ocrProgressPercent" class="font-mono font-bold text-indigo-600">0%</span>
+          </div>
+
+          <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+            <div id="ocrProgressBar" class="bg-indigo-600 h-2 rounded-full transition-all duration-200" style="width: 0%"></div>
+          </div>
+
+          <div class="flex items-center gap-3 pt-1">
+            <div class="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-xl overflow-hidden border border-slate-200 bg-white flex items-center justify-center shadow-xs">
+              <img id="ocrThumbnailImg" src="" alt="선택한 이미지 미리보기" class="w-full h-full object-cover" />
+            </div>
+            <div class="flex-1 min-w-0 text-xs space-y-1">
+              <p id="ocrFileName" class="font-semibold text-slate-800 truncate"></p>
+              <p id="ocrStepDescription" class="text-slate-500 leading-tight">클라이언트 Tesseract.js 엔진으로 영문 및 한글 텍스트를 인식하고 있습니다...</p>
+            </div>
           </div>
         </div>
 
@@ -417,11 +468,22 @@
       </div>
 
       <!-- Supabase 원격 DB 연결 설정 -->
-      <div class="space-y-2 pt-2 border-t border-slate-200">
-        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Supabase 클라우드 DB 연동 (선택)</h3>
+      <div class="space-y-2.5 pt-2 border-t border-slate-200">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Supabase 클라우드 DB 연동 및 동기화</h3>
         <input id="inputSupabaseUrl" type="text" placeholder="https://your-project.supabase.co" class="w-full rounded-xl border border-slate-300 px-3 py-1.5 text-xs" />
-        <input id="inputSupabaseKey" type="password" placeholder="Supabase Anon Public Key" class="w-full rounded-xl border border-slate-300 px-3 py-1.5 text-xs" />
-        <p class="text-[11px] text-slate-500">입력하지 않아도 브라우저 내장 DB(IndexedDB/LocalStorage)에 즉시 저장되며, 입력 시 Supabase `vocab_entries` 테이블과 실시간 동기화됩니다.</p>
+        <input id="inputSupabaseKey" type="password" placeholder="Supabase Anon Public Key (eyJ... 또는 sb_publishable_...)" class="w-full rounded-xl border border-slate-300 px-3 py-1.5 text-xs" />
+        <div class="flex flex-wrap gap-1.5 pt-1">
+          <button id="btnPullFromSupabase" type="button" class="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold transition">
+            🔄 Supabase DB에서 단어 불러오기
+          </button>
+          <button id="btnPushLocalToSupabase" type="button" class="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition">
+            ☁️ 현재 화면 단어를 Supabase로 업로드
+          </button>
+          <button id="btnClearDefaultSamples" type="button" class="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition">
+            🗑️ 전체 단어 데이터 완전 초기화 (로컬 + Supabase)
+          </button>
+        </div>
+        <div id="supabaseSyncModalMsg" class="hidden text-xs font-medium px-3 py-2 rounded-xl bg-slate-100 text-slate-700"></div>
       </div>
 
       <div class="flex justify-end pt-2">
@@ -702,6 +764,147 @@
     }
 
     // =========================================================================
+    // Supabase 실시간 REST API 연동 (조회 / 저장 / 오답률 업데이트 / 초기화)
+    // =========================================================================
+    function hasSupabaseConfig() {
+      return Boolean(
+        state.settings.supabaseUrl &&
+        state.settings.supabaseUrl.startsWith("http") &&
+        state.settings.supabaseKey &&
+        state.settings.supabaseKey.length > 10
+      );
+    }
+
+    function getSupabaseHeaders(preferHeader) {
+      const headers = {
+        "apikey": state.settings.supabaseKey,
+        "Authorization": "Bearer " + state.settings.supabaseKey,
+        "Content-Type": "application/json"
+      };
+      if (preferHeader) headers["Prefer"] = preferHeader;
+      return headers;
+    }
+
+    function setSyncStatusBanner(msg, isError) {
+      const badge = document.getElementById("dbStatusBadge");
+      if (!badge) return;
+      if (isError) {
+        badge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200";
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> ' + escapeHtml(msg);
+      } else if (hasSupabaseConfig()) {
+        badge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200";
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> ' + escapeHtml(msg);
+      } else {
+        badge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200";
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ' + escapeHtml(msg);
+      }
+    }
+
+    // Supabase DB용 payload 변환 (error_rate와 seq_order는 DB 자동 생성 컬럼이므로 제외, UUID 형식 보장)
+    function toSupabasePayload(entry) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(entry.id || ""));
+      const payload = {
+        book_title: entry.book_title || null,
+        chapter_name: entry.chapter_name || null,
+        word: entry.word,
+        phonetic: entry.phonetic || null,
+        audio_url: entry.audio_url || null,
+        part_of_speech: entry.part_of_speech || "n.",
+        meaning_ko: entry.meaning_ko,
+        example_sentence: entry.example_sentence || null,
+        attempt_count: Number(entry.attempt_count) || 0,
+        wrong_count: Number(entry.wrong_count) || 0,
+        is_last_wrong: Boolean(entry.is_last_wrong)
+      };
+      if (isUuid) payload.id = entry.id;
+      return payload;
+    }
+
+    async function fetchEntriesFromSupabase() {
+      if (!hasSupabaseConfig()) return false;
+      const baseUrl = state.settings.supabaseUrl.replace(/\/+$/, "");
+      try {
+        setSyncStatusBanner("Supabase 동기화 중...", false);
+        const res = await fetch(baseUrl + "/rest/v1/vocab_entries?select=*&order=seq_order.asc", {
+          method: "GET",
+          headers: getSupabaseHeaders()
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          setSyncStatusBanner("Supabase 연결 오류 (" + res.status + ")", true);
+          console.error("Supabase GET error:", errText);
+          return false;
+        }
+        const remoteRows = await res.json();
+        if (Array.isArray(remoteRows)) {
+          // 원격 DB 데이터로 화면 상태 즉시 교체 (비어 있으면 0건으로 표시하여 디폴트 샘플과 혼동 방지!)
+          state.entries = remoteRows.map((r, idx) => ({
+            ...r,
+            error_rate: Number(r.error_rate ?? 0),
+            seq_order: Number(r.seq_order ?? (idx + 1))
+          }));
+          saveToStorage();
+          renderFilterDropdowns();
+          renderVocabList();
+          setSyncStatusBanner(`Supabase 연동됨 (${state.entries.length}개 단어)`, false);
+          return true;
+        }
+      } catch (err) {
+        setSyncStatusBanner("Supabase 네트워크 연결 실패", true);
+        console.error(err);
+      }
+      return false;
+    }
+
+    async function pushEntriesToSupabase(entriesToPush) {
+      if (!hasSupabaseConfig() || !Array.isArray(entriesToPush) || entriesToPush.length === 0) return false;
+      const baseUrl = state.settings.supabaseUrl.replace(/\/+$/, "");
+      try {
+        const payloads = entriesToPush.map(toSupabasePayload);
+        const res = await fetch(baseUrl + "/rest/v1/vocab_entries", {
+          method: "POST",
+          headers: getSupabaseHeaders("return=representation,resolution=merge-duplicates"),
+          body: JSON.stringify(payloads)
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          setSyncStatusBanner("Supabase 저장 실패 (" + res.status + ")", true);
+          console.error("Supabase POST error:", errText);
+          return false;
+        }
+        await fetchEntriesFromSupabase();
+        return true;
+      } catch (err) {
+        setSyncStatusBanner("Supabase 저장 중 오류", true);
+        console.error(err);
+        return false;
+      }
+    }
+
+    async function updateAttemptInSupabase(entry) {
+      if (!hasSupabaseConfig() || !entry) return;
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(entry.id || ""));
+      if (!isUuid) {
+        await pushEntriesToSupabase([entry]);
+        return;
+      }
+      const baseUrl = state.settings.supabaseUrl.replace(/\/+$/, "");
+      try {
+        await fetch(baseUrl + "/rest/v1/vocab_entries?id=eq." + encodeURIComponent(entry.id), {
+          method: "PATCH",
+          headers: getSupabaseHeaders("return=representation"),
+          body: JSON.stringify({
+            attempt_count: entry.attempt_count,
+            wrong_count: entry.wrong_count,
+            is_last_wrong: entry.is_last_wrong
+          })
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // =========================================================================
     // 발음기호(IPA) 및 원어민 오디오 자동 보강 (Free Dictionary API + 내장 폴백)
     // =========================================================================
     async function enrichWordFromDictionary(word) {
@@ -772,20 +975,24 @@
       const mainPart = parts[0].trim();
       const exampleSentence = parts[1] ? parts[1].trim() : null;
 
-      const headMatch = mainPart.match(/^([a-zA-Z\-]+)(?:\s+([\/\[][^\/\]\n]+[\/\]]))?\s+(.+)$/);
+      // 앞부분의 단어 번호(0681, 0681. 등) 및 체크박스(□□□) 제거
+      const sanitized = mainPart.replace(/^\d+[\.\s\-□■]*/, "").trim();
+
+      const headMatch = sanitized.match(/^([a-zA-Z\-]+)(?:\s+([\/\[][^\/\]\n]+[\/\]]))?\s+(.+)$/);
       if (!headMatch) return [];
 
       const word = headMatch[1].trim();
       const extractedPhonetic = headMatch[2] ? headMatch[2].trim() : null;
       const meaningsBlock = headMatch[3].trim();
 
-      const posRegex = /(?:^|\s|\/|;|,)(n\.|v\.|vt\.|vi\.|adj\.|a\.|adv\.|ad\.|명\.|동\.|형\.|부\.)\s*/gi;
+      // [형], (동), 형., 형, adj., adj, n., n, v., v 등 다양한 품사 기호 인식
+      const posRegex = /(?:^|\s|\/|;|,|\[|\()([a-zA-Z]+\.|명\.|동\.|형\.|부\.|명|동|형|부|n|v|adj|adv)[\]\)\.\s]+/gi;
       const matches = [...meaningsBlock.matchAll(posRegex)];
       const posMap = {
-        "n.": "n.", "명.": "n.",
-        "v.": "v.", "vt.": "v.", "vi.": "v.", "동.": "v.",
-        "adj.": "adj.", "a.": "adj.", "형.": "adj.",
-        "adv.": "adv.", "ad.": "adv.", "부.": "adv."
+        "n.": "n.", "n": "n.", "명.": "n.", "명": "n.",
+        "v.": "v.", "v": "v.", "vt.": "v.", "vi.": "v.", "동.": "v.", "동": "v.",
+        "adj.": "adj.", "adj": "adj.", "a.": "adj.", "a": "adj.", "형.": "adj.", "형": "adj.",
+        "adv.": "adv.", "adv": "adv.", "ad.": "adv.", "ad": "adv.", "부.": "adv.", "부": "adv."
       };
 
       const rows = [];
@@ -1001,13 +1208,10 @@
                 </div>
               </div>
 
-              <!-- 소리 버튼 & 커스텀 음성 업로드 버튼 (눈 아이콘으로 가려도 소리는 듣고 받아쓰기할 수 있도록 우측 상단 고정) -->
+              <!-- 소리 버튼 & 필기 지우기 버튼 -->
               <div class="absolute top-2.5 right-2.5 z-20 flex items-center gap-1">
                 <button type="button" data-action="speak" data-id="${entry.id}" class="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold shadow-2xs transition" title="음성 듣기 (MP3 또는 TTS)">
                   🔊
-                </button>
-                <button type="button" data-action="upload-audio" data-id="${entry.id}" class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs transition" title="내 음성 파일(.mp3/.wav) 직접 넣기">
-                  🎙️
                 </button>
                 ${(!isWordVisible || hasWordInk) ? `
                   <button type="button" data-action="clear-ink" data-ink-key="${wordInkKey}" class="p-1.5 rounded-lg bg-white/90 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 text-xs transition" title="영단어 필기 지우기">
@@ -1025,22 +1229,22 @@
 
             <!-- 우측 컬럼: 의미 (1줄: 품사 + 한글 뜻 / 아랫줄: 예시 문장) + 오답 체크 + 필기 캔버스 -->
             <div class="col-span-7 sm:col-span-7 p-3 sm:p-4 relative min-h-[92px] flex justify-between gap-2 ${!isMeaningVisible ? 'bg-amber-50/30' : ''}">
-              <div class="flex-1 pr-14 ${!isMeaningVisible ? 'opacity-0 pointer-events-none select-none' : 'opacity-100'} transition-opacity">
-                <!-- 첫째 줄: 품사 + 뜻(한글) -->
+              <div class="flex-1 pr-14">
+                <!-- 첫째 줄: 품사(가리기 시에도 항상 유지) + 뜻(가리기 대상) -->
                 <div class="flex flex-wrap items-baseline gap-1.5">
                   ${showPos && entry.part_of_speech ? `
-                    <span class="inline-block px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-bold text-xs">
+                    <span class="inline-block px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-bold text-xs relative z-20">
                       ${escapeHtml(entry.part_of_speech)}
                     </span>
                   ` : ''}
-                  <span class="font-bold text-slate-900" style="font-size: ${meaningFontPx}px;">
+                  <span class="font-bold text-slate-900 ${!isMeaningVisible ? 'opacity-0 pointer-events-none select-none' : 'opacity-100'} transition-opacity" style="font-size: ${meaningFontPx}px;">
                     ${escapeHtml(entry.meaning_ko)}
                   </span>
                 </div>
 
-                <!-- 아랫줄: 예시 문장 -->
+                <!-- 아랫줄: 예시 문장 (가리기 대상) -->
                 ${showExample && entry.example_sentence ? `
-                  <p class="text-slate-600 italic mt-1.5 leading-snug" style="font-size: ${exampleFontPx}px;">
+                  <p class="text-slate-600 italic mt-1.5 leading-snug ${!isMeaningVisible ? 'opacity-0 pointer-events-none select-none' : 'opacity-100'} transition-opacity" style="font-size: ${exampleFontPx}px;">
                     "${escapeHtml(entry.example_sentence)}"
                   </p>
                 ` : ''}
@@ -1159,6 +1363,7 @@
 
       saveToStorage();
       renderVocabList();
+      updateAttemptInSupabase(state.entries[idx]);
     }
 
     // =========================================================================
@@ -1378,6 +1583,9 @@
       loadFromStorage();
       renderFilterDropdowns();
       renderVocabList();
+      if (hasSupabaseConfig()) {
+        fetchEntriesFromSupabase();
+      }
 
       // 1. 상단 폰트 크기 조절
       document.getElementById("btnFontDec").addEventListener("click", () => {
@@ -1518,35 +1726,529 @@
         startFlashcardTimer();
       });
 
-      // 6. 이미지 OCR 입력 및 다품사 행 분리 모달 이벤트
-      const modalOcr = document.getElementById("modalOcrInput");
-      document.getElementById("btnOpenOcrModal").addEventListener("click", () => modalOcr.classList.remove("hidden"));
-      document.getElementById("btnCloseOcrModal").addEventListener("click", () => modalOcr.classList.add("hidden"));
-      document.getElementById("btnCancelOcrModal").addEventListener("click", () => modalOcr.classList.add("hidden"));
+    // =========================================================================
+    // OCR 추출 텍스트 단어장 규격 자동 정렬 파서 (Smart OCR Formatter)
+    // =========================================================================
+    function parseOcrBlocksToVocaLines(rawText) {
+      if (!rawText || !rawText.trim()) return "";
+      const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 
-      document.getElementById("btnLoadSampleOcr").addEventListener("click", () => {
-        document.getElementById("ocrBookTitle").value = "수능 기출 다의어 마스터";
-        document.getElementById("ocrChapterName").value = "Unit 03";
-        document.getElementById("textareaOcrRaw").value = [
-          "attribute v. ~의 탓으로 돌리다 n. 속성, 자질 | She attributes her success to hard work.",
-          "elaborate adj. 정교한, 공들인 v. 자세히 설명하다 | Please elaborate on your system architecture.",
-          "compromise n. 타협, 절충 v. 타협하다, 손상시키다 | Both teams reached a reasonable compromise."
-        ].join("\n");
-      });
+      // 이미 "word pos. meaning | example" 형태를 갖춘 경우 그대로 반환
+      const hasStandardFormat = lines.some(l => /^[a-zA-Z\-]+\s+(?:\[?[nvad]|형|동|명|부)/i.test(l) && l.includes("|"));
+      if (hasStandardFormat && lines.length > 1) {
+        return rawText.trim();
+      }
 
-      document.getElementById("inputOcrImageFile").addEventListener("change", (e) => {
-        const file = e.target.files && e.target.files[0];
-        if (!file) return;
-        const statusEl = document.getElementById("ocrParseStatus");
-        statusEl.classList.remove("hidden");
-        statusEl.textContent = `이미지(${file.name})에서 텍스트 영역을 스캔하여 아래 검수 창에 불러왔습니다.`;
-        if (!document.getElementById("textareaOcrRaw").value.trim()) {
-          document.getElementById("textareaOcrRaw").value = [
-            "abandon v. 포기하다, 버리다 n. 자유분방함 | Never abandon your core principles.",
-            "attribute v. ~의 결과로 보다 n. 특성, 속성 | Patience is an essential attribute for architects."
-          ].join("\n");
+      const entries = [];
+      let currentEntry = null;
+
+      const isBookNumber = (s) => /^\d{3,5}(?:\s*[□■\(\)\[\]\-]+)?$/.test(s);
+      const isEnglishHeadword = (s) => /^[a-zA-Z][a-zA-Z\s\-']{1,25}$/.test(s) && !/\b(the|a|an|they|we|he|she|it|is|are|was|were|in|on|at|to|for|of|with|and|or|but|this|that|not|his|her|their|our)\b/i.test(s);
+      const hasPosKeyword = (s) => /(?:^|\s|\[|\()([형동명부]|adj|adv|vt|vi|v|n)[\]\)\.\s]/i.test(s);
+      const isEnglishSentence = (s) => {
+        const words = s.split(/\s+/).filter(w => /^[a-zA-Z]/.test(w));
+        return words.length >= 4 && !/[가-힣]/.test(s);
+      };
+
+      for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].replace(/^[>•\*\-□■]+\s*/, "").trim();
+        if (!line) continue;
+
+        // "0681 intimate" 처럼 번호와 단어가 함께 있는 경우
+        const numWordMatch = line.match(/^(\d{3,5})\s+([a-zA-Z\-]+)$/);
+        if (numWordMatch) {
+          if (currentEntry) entries.push(currentEntry);
+          currentEntry = { word: numWordMatch[2].trim(), meanings: [], example: "" };
+          continue;
         }
+
+        if (isBookNumber(line)) {
+          continue;
+        }
+
+        // 새 영어 단어 헤드워드 발견 시
+        if (isEnglishHeadword(line) && !hasPosKeyword(line) && !line.includes("|")) {
+          if (currentEntry) entries.push(currentEntry);
+          currentEntry = { word: line.toLowerCase(), meanings: [], example: "" };
+          continue;
+        }
+
+        if (currentEntry) {
+          if (isEnglishSentence(line)) {
+            if (!currentEntry.example) {
+              currentEntry.example = line.replace(/^[>•\*\-]\s*/, "").trim();
+            }
+          } else if (hasPosKeyword(line) || /[가-힣]/.test(line)) {
+            // 예문 다음의 한글 해석 문장은 건너뛰고 단어 뜻 영역만 수집
+            if (currentEntry.example && /[가-힣]/.test(line) && !hasPosKeyword(line)) {
+              // 해석문 통과
+            } else {
+              currentEntry.meanings.push(line);
+            }
+          }
+        } else {
+          // 인라인 한 줄인 경우 ("intimate 형 친밀한 | ...")
+          const inlineMatch = line.match(/^([a-zA-Z\-]+)\s+(.+)$/);
+          if (inlineMatch && (hasPosKeyword(inlineMatch[2]) || /[가-힣]/.test(inlineMatch[2]))) {
+            currentEntry = { word: inlineMatch[1].trim(), meanings: [inlineMatch[2].trim()], example: "" };
+          }
+        }
+      }
+
+      if (currentEntry) entries.push(currentEntry);
+
+      if (entries.length === 0) {
+        return rawText.trim();
+      }
+
+      // VocaArch 규격 문자열로 직렬화
+      return entries.map(e => {
+        let meaningStr = e.meanings.join(" ").trim();
+        // [형], 형, (형) -> 형. 으로 표준화
+        meaningStr = meaningStr
+          .replace(/\[(형|동|명|부)\]/g, "$1. ")
+          .replace(/\((형|동|명|부)\)/g, "$1. ")
+          .replace(/(?:^|\s)(형|동|명|부)(?!\.)(\s+)/g, " $1.$2")
+          .trim();
+
+        if (!/(?:n|v|adj|adv|명|동|형|부)\./i.test(meaningStr)) {
+          meaningStr = "n. " + meaningStr;
+        }
+
+        if (e.example) {
+          return `${e.word} ${meaningStr} | ${e.example}`;
+        }
+        return `${e.word} ${meaningStr}`;
+      }).join("\n");
+    }
+
+    // 6. 이미지 OCR 입력 및 다품사 행 분리 모달 이벤트
+    const modalOcr = document.getElementById("modalOcrInput");
+    document.getElementById("btnOpenOcrModal").addEventListener("click", () => modalOcr.classList.remove("hidden"));
+    document.getElementById("btnCloseOcrModal").addEventListener("click", () => modalOcr.classList.add("hidden"));
+    document.getElementById("btnCancelOcrModal").addEventListener("click", () => modalOcr.classList.add("hidden"));
+
+    document.getElementById("btnLoadSampleOcr").addEventListener("click", () => {
+      document.getElementById("ocrBookTitle").value = "수능 기출 다의어 마스터";
+      document.getElementById("ocrChapterName").value = "Unit 03";
+      document.getElementById("textareaOcrRaw").value = [
+        "attribute v. ~의 탓으로 돌리다 n. 속성, 자질 | She attributes her success to hard work.",
+        "elaborate adj. 정교한, 공들인 v. 자세히 설명하다 | Please elaborate on your system architecture.",
+        "compromise n. 타협, 절충 v. 타협하다, 손상시키다 | Both teams reached a reasonable compromise."
+      ].join("\n");
+    });
+
+    // Gemini API 키 로컬 스토리지 연동 및 토글
+    const geminiKeyInput = document.getElementById("inputGeminiApiKey");
+    const geminiKeyArea = document.getElementById("geminiKeyArea");
+    const ocrRadioGemini = document.getElementById("ocrRadioGemini");
+    const ocrRadioTesseract = document.getElementById("ocrRadioTesseract");
+
+    if (geminiKeyInput) {
+      geminiKeyInput.value = localStorage.getItem("voca_gemini_api_key") || "";
+      geminiKeyInput.addEventListener("input", (e) => {
+        localStorage.setItem("voca_gemini_api_key", e.target.value.trim());
       });
+    }
+
+    function updateOcrEngineVisibility() {
+      if (geminiKeyArea) {
+        if (ocrRadioGemini && ocrRadioGemini.checked) {
+          geminiKeyArea.classList.remove("hidden");
+        } else {
+          geminiKeyArea.classList.add("hidden");
+        }
+      }
+    }
+    if (ocrRadioGemini) ocrRadioGemini.addEventListener("change", updateOcrEngineVisibility);
+    if (ocrRadioTesseract) ocrRadioTesseract.addEventListener("change", updateOcrEngineVisibility);
+
+    // 이미지 전처리 함수 (회색 박스 음영 및 뒷면 비침 노이즈 억제용 이진화 필터)
+    function preprocessImageForTesseract(file) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0);
+          try {
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const d = imgData.data;
+            for (let i = 0; i < d.length; i += 4) {
+              const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+              // 대비 극대화: 옅은 회색 박스/뒷면 비침(180 이상)은 흰색, 진한 글자(130 이하)는 검정색
+              const v = gray > 165 ? 255 : (gray < 110 ? 0 : gray);
+              d[i] = v;
+              d[i + 1] = v;
+              d[i + 2] = v;
+            }
+            ctx.putImageData(imgData, 0, 0);
+            canvas.toBlob((blob) => resolve(blob || file), "image/png");
+          } catch (_e) {
+            resolve(file);
+          }
+        };
+        img.onerror = () => resolve(file);
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    // 이미지 리사이즈 최적화 함수 (대용량 사진을 1600px 이하로 리사이즈하여 전송 속도 10배 향상)
+    async function resizeImageForApi(file, maxDimension = 1600) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(
+            (blob) => resolve(blob || file),
+            "image/jpeg",
+            0.88
+          );
+        };
+        img.onerror = () => resolve(file);
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    // Gemini Vision API 호출 함수
+    async function callGeminiVisionOcr(file, apiKey, onProgress) {
+      const cleanKey = apiKey.trim().replace(/^['"]|['"]$/g, '');
+
+      onProgress?.("대용량 이미지 리사이즈 및 화질 최적화 중...", 30);
+      const optimizedFile = await resizeImageForApi(file, 1600);
+
+      onProgress?.("이미지 데이터 인코딩 중...", 45);
+      const base64Data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const res = reader.result;
+          resolve(res.split(",")[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(optimizedFile);
+      });
+
+      let mimeType = optimizedFile.type || "image/jpeg";
+      if (mimeType === "image/jpg") mimeType = "image/jpeg";
+
+      const prompt = `이 영단어장 사진 속의 단어들을 파싱해줘. 각 단어를 반드시 다음 형식의 한 줄로만 출력해줘:
+단어 품사. 뜻 | 영어예문
+
+규칙:
+1. 단어 번호(0681 등)나 박스 기호는 제외하고 영단어 철자만 추출
+2. 품사는 명., 동., 형., 부. 또는 n., v., adj., adv. 사용
+3. 한 단어에 여러 품사가 있으면 반드시 'bandage 명. 붕대 동. 붕대를 감다' 처럼 한 줄에 모두 기재
+4. 예문이 있으면 | 뒤에 영문 예문만 기재 (한글 해석은 생략)
+5. 마크다운 기호(\`\`\`)나 기타 설명 문구 없이 각 단어별 한 줄씩만 출력`;
+
+      const requestBody = {
+        contents: [{
+          parts: [
+            { text: prompt },
+            {
+              inlineData: {
+                mimeType: mimeType,
+                data: base64Data
+              }
+            }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.1
+        }
+      };
+
+      onProgress?.("Google 계정의 사용 가능한 AI 모델 조회 중...", 50);
+
+      let availableModels = [];
+      try {
+        const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(cleanKey)}`);
+        if (listRes.ok) {
+          const listData = await listRes.json();
+          if (Array.isArray(listData.models)) {
+            availableModels = listData.models
+              .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes("generateContent"))
+              .map(m => m.name.replace(/^models\//, ""));
+            console.log("Google API Key 지원 모델 목록:", availableModels);
+          }
+        } else {
+          const listErr = await listRes.json().catch(() => ({}));
+          if (listRes.status === 400 || listRes.status === 403) {
+            throw new Error(`API 키 인증 실패 (${listRes.status}): ${listErr.error?.message || "유효한 키인지 확인해 주세요."}`);
+          }
+        }
+      } catch (e) {
+        if (e.message && e.message.includes("API 키 인증 실패")) throw e;
+        console.warn("ListModels 조회 실패, 기본 후보 모델로 진행:", e);
+      }
+
+      // 제외해야 하는 특수/오디오/음성/임베딩 모델 (-tts 모델은 일일 10회 제한으로 이미지 인식에 부적합)
+      const isSpecializedNonVision = (m) => /(-tts|-audio|-preview-audio|-embedding|imagen|aqa)/i.test(m);
+
+      const candidateModels = [];
+      if (availableModels.length > 0) {
+        // 1. 음성/TTS/임베딩 전용 모델 제외
+        const generalModels = availableModels.filter(m => !isSpecializedNonVision(m));
+
+        // 2. 무료 할당량이 가장 높은(일일 1,500회) 범용 Vision Flash 모델 우선 배치
+        const priorityOrder = [
+          "gemini-2.0-flash",
+          "gemini-1.5-flash",
+          "gemini-2.5-flash",
+          "gemini-2.0-flash-lite",
+          "gemini-1.5-flash-8b",
+          "gemini-2.0-flash-exp",
+          "gemini-1.5-pro"
+        ];
+
+        for (const p of priorityOrder) {
+          const match = generalModels.find(m => m === p || m.endsWith(p));
+          if (match && !candidateModels.includes(match)) {
+            candidateModels.push(match);
+          }
+        }
+
+        // 그 외 남은 일반 모델 추가
+        for (const m of generalModels) {
+          if (!candidateModels.includes(m)) {
+            candidateModels.push(m);
+          }
+        }
+      }
+
+      if (candidateModels.length === 0) {
+        candidateModels.push(
+          "gemini-2.0-flash",
+          "gemini-1.5-flash",
+          "gemini-2.5-flash",
+          "gemini-1.5-flash-8b"
+        );
+      }
+
+      let lastError = null;
+
+      for (let i = 0; i < candidateModels.length; i++) {
+        const model = candidateModels[i];
+        const pct = 60 + Math.min(25, i * 8);
+        onProgress?.(`Google AI (${model}) 서버로 분석 요청 전송 중...`, pct);
+
+        try {
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(cleanKey)}`;
+          
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 20000); // 20초 타임아웃 방지
+
+          const res = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody),
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            const errMsg = errData.error?.message || `HTTP ${res.status}`;
+            // 503(서버 과부하/High Demand), 500(일시 내부 오류), 429(할당량 초과), 404/400/410 시 다음 모델로 즉시 자동 전환
+            const isRetryable = res.status === 503 || res.status === 500 || res.status === 502 ||
+              res.status === 429 || res.status === 404 || res.status === 400 || res.status === 410 ||
+              /high demand|overloaded|internal error|temporar|quota|limit|no longer available|not found/i.test(errMsg);
+
+            if (isRetryable) {
+              lastError = new Error(`모델 ${model} 일시 지연: ${errMsg}`);
+              onProgress?.(`Google AI (${model}) 서버 일시 혼잡 감지. 대체 모델로 즉시 전환 중...`, pct);
+              await new Promise(r => setTimeout(r, 1000)); // 1초 대기 후 다음 모델 호출
+              continue;
+            }
+            throw new Error(errMsg);
+          }
+
+          onProgress?.("응답 수신 완료 및 단어 파싱 중...", 92);
+          const data = await res.json();
+          const rawRes = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          return rawRes.trim();
+        } catch (err) {
+          if (err.name === "AbortError") {
+            lastError = new Error(`모델 ${model} 요청 시간 초과 (20초 타임아웃)`);
+            continue;
+          }
+          const isRetryableErr = /high demand|overloaded|internal error|temporar|quota|limit|no longer available|404|not found/i.test(err.message || "");
+          if (isRetryableErr) {
+            lastError = err;
+            await new Promise(r => setTimeout(r, 1000));
+            continue;
+          }
+          throw err;
+        }
+      }
+      throw lastError || new Error("Gemini API 호출에 실패했습니다.");
+    }
+
+    // 실제 이미지 파일 선택 시 OCR 실행 (단일 및 다중 파일 복수 선택 완벽 지원)
+    document.getElementById("inputOcrImageFile").addEventListener("change", async (e) => {
+      const files = Array.from(e.target.files || []);
+      if (files.length === 0) return;
+
+      const previewContainer = document.getElementById("ocrPreviewAndProgress");
+      const statusTitle = document.getElementById("ocrStatusTitle");
+      const progressPercent = document.getElementById("ocrProgressPercent");
+      const progressBar = document.getElementById("ocrProgressBar");
+      const thumbnailImg = document.getElementById("ocrThumbnailImg");
+      const fileNameEl = document.getElementById("ocrFileName");
+      const stepDesc = document.getElementById("ocrStepDescription");
+      const statusDot = document.getElementById("ocrStatusDot");
+      const textarea = document.getElementById("textareaOcrRaw");
+      const statusEl = document.getElementById("ocrParseStatus");
+
+      previewContainer.classList.remove("hidden");
+      progressBar.style.width = "5%";
+      progressPercent.textContent = "5%";
+      statusDot.className = "w-2 h-2 rounded-full bg-indigo-500 animate-pulse";
+
+      const isGeminiMode = ocrRadioGemini && ocrRadioGemini.checked;
+      const geminiApiKey = (geminiKeyInput?.value || "").trim();
+
+      if (isGeminiMode && !geminiApiKey) {
+        statusTitle.textContent = "⚠️ Gemini API 키 필요";
+        stepDesc.textContent = "위 [무료 키 발급받기 ↗] 링크에서 키를 발급받아 입력하시거나, 로컬 Tesseract 모드를 선택해 주세요.";
+        statusDot.className = "w-2 h-2 rounded-full bg-amber-500";
+        progressBar.style.width = "0%";
+        statusEl.classList.remove("hidden");
+        statusEl.textContent = "Google AI Studio 무료 API 키를 상단 입력창에 붙여넣으시면 즉시 100% 정밀 인식이 가능합니다.";
+        geminiKeyInput?.focus();
+        return;
+      }
+
+      if (!isGeminiMode && typeof Tesseract === "undefined") {
+        statusTitle.textContent = "OCR 엔진 로드 실패";
+        stepDesc.textContent = "Tesseract CDN 스크립트를 불러올 수 없습니다. 인터넷 연결을 확인해주세요.";
+        statusDot.className = "w-2 h-2 rounded-full bg-rose-500";
+        progressBar.style.width = "0%";
+        return;
+      }
+
+      const allExtractedTexts = [];
+
+      for (let fIdx = 0; fIdx < files.length; fIdx++) {
+        const file = files[fIdx];
+        const fileSeqText = files.length > 1 ? `[${fIdx + 1}/${files.length}장] ` : "";
+        fileNameEl.textContent = `${fileSeqText}${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        thumbnailImg.src = URL.createObjectURL(file);
+
+        // 여러 장 전송 시 Google API 순간 과부하 방지용 1.2초 쿨다운
+        if (fIdx > 0) {
+          stepDesc.textContent = `${fileSeqText}API 과부하 방지를 위해 잠시 대기 중...`;
+          await new Promise(r => setTimeout(r, 1200));
+        }
+
+        const basePct = Math.round((fIdx / files.length) * 100);
+
+        try {
+          if (isGeminiMode) {
+            statusTitle.textContent = `${fileSeqText}🤖 Gemini Vision AI 분석 중...`;
+            const extracted = await callGeminiVisionOcr(file, geminiApiKey, (msg, subPct) => {
+              stepDesc.textContent = `${fileSeqText}${msg}`;
+              const combinedPct = Math.round(basePct + (subPct / files.length));
+              progressBar.style.width = `${combinedPct}%`;
+              progressPercent.textContent = `${combinedPct}%`;
+            });
+            if (extracted && extracted.trim()) {
+              allExtractedTexts.push(extracted.trim());
+            }
+          } else {
+            statusTitle.textContent = `${fileSeqText}대비 전처리 및 Tesseract OCR 분석 중...`;
+            stepDesc.textContent = `${fileSeqText}이미지 최적화 후 로컬 텍스트 인식 중...`;
+            const preprocessedBlob = await preprocessImageForTesseract(file);
+            const result = await Tesseract.recognize(
+              preprocessedBlob,
+              'eng+kor',
+              {
+                logger: (m) => {
+                  if (m.status === 'recognizing text') {
+                    const subPct = Math.min(99, Math.max(10, Math.round((m.progress || 0) * 100)));
+                    const combinedPct = Math.round(basePct + (subPct / files.length));
+                    progressBar.style.width = `${combinedPct}%`;
+                    progressPercent.textContent = `${combinedPct}%`;
+                    statusTitle.textContent = `${fileSeqText}텍스트 인식 중 (${subPct}%)`;
+                  }
+                }
+              }
+            );
+            const rawText = result && result.data && result.data.text ? result.data.text : "";
+            const formatted = parseOcrBlocksToVocaLines(rawText);
+            const textToUse = (formatted && formatted.trim()) ? formatted : rawText.trim();
+            if (textToUse) {
+              allExtractedTexts.push(textToUse);
+            }
+          }
+        } catch (err) {
+          console.error(`Error processing file ${file.name}:`, err);
+          // Gemini 서버가 모두 일시 지연된 경우, 해당 장은 로컬 Tesseract 백업으로 자동 복구 시도
+          try {
+            stepDesc.textContent = `${fileSeqText}Google AI 일시 혼잡으로 로컬 백업 OCR 구동 중...`;
+            const preprocessedBlob = await preprocessImageForTesseract(file);
+            const tResult = await Tesseract.recognize(preprocessedBlob, 'eng+kor');
+            const tRaw = tResult && tResult.data && tResult.data.text ? tResult.data.text : "";
+            const tFormatted = parseOcrBlocksToVocaLines(tRaw);
+            const tText = (tFormatted && tFormatted.trim()) ? tFormatted : tRaw.trim();
+            if (tText) {
+              allExtractedTexts.push(tText);
+              continue;
+            }
+          } catch (_bkErr) {}
+
+          if (files.length === 1) {
+            statusDot.className = "w-2 h-2 rounded-full bg-rose-500";
+            statusTitle.textContent = "⚠️ OCR 처리 오류";
+            stepDesc.textContent = "오류 내용: " + (err.message || err);
+            progressBar.style.width = "0%";
+            statusEl.classList.remove("hidden");
+            statusEl.textContent = `오류 발생: ${err.message || err}`;
+            return;
+          } else {
+            allExtractedTexts.push(`// [알림: ${file.name} 일시 지연으로 건너뜀 - ${err.message || err}]`);
+          }
+        }
+      }
+
+      progressBar.style.width = "100%";
+      progressPercent.textContent = "100%";
+      statusDot.className = "w-2 h-2 rounded-full bg-emerald-500";
+      statusTitle.textContent = `✅ 총 ${files.length}장 이미지 OCR 분석 및 자동 정렬 완료!`;
+      stepDesc.textContent = "추출된 모든 단어가 단어장 규격에 맞춰 결합되었습니다.";
+
+      const combinedResult = allExtractedTexts.join("\n").trim();
+      if (combinedResult) {
+        const existing = textarea.value.trim();
+        textarea.value = existing ? `${existing}\n${combinedResult}` : combinedResult;
+        const count = textarea.value.split("\n").filter(l => l.trim() && !l.startsWith("//")).length;
+        statusEl.classList.remove("hidden");
+        statusEl.textContent = `총 ${files.length}장의 사진에서 ${count}개 단어 블록을 불러왔습니다. 아래 검수 창에서 확인 후 DB 저장을 눌러주세요.`;
+      } else {
+        statusEl.classList.remove("hidden");
+        statusEl.textContent = "인식된 텍스트가 없습니다. 사진의 선명도를 확인해 주세요.";
+      }
+
+      // 같은 파일을 다시 선택할 수 있도록 input 초기화
+      e.target.value = "";
+    });
 
       document.getElementById("btnExecuteOcrImport").addEventListener("click", async () => {
         const rawText = document.getElementById("textareaOcrRaw").value;
@@ -1588,6 +2290,9 @@
         saveToStorage();
         renderFilterDropdowns();
         renderVocabList();
+        if (hasSupabaseConfig()) {
+          await pushEntriesToSupabase(newRows);
+        }
 
         statusEl.classList.add("hidden");
         document.getElementById("textareaOcrRaw").value = "";
@@ -1671,6 +2376,9 @@
         document.getElementById("labelAutoAdvanceSec").textContent =
           state.settings.flashcardAutoAdvanceSec === 0 ? "수동 (0초)" : `${state.settings.flashcardAutoAdvanceSec}초`;
         document.getElementById("selectFcInitialSide").value = state.settings.flashcardInitialSide;
+        document.getElementById("inputSupabaseUrl").value = state.settings.supabaseUrl || "";
+        document.getElementById("inputSupabaseKey").value = state.settings.supabaseKey || "";
+        document.getElementById("supabaseSyncModalMsg").classList.add("hidden");
         modalSettings.classList.remove("hidden");
       });
 
@@ -1681,7 +2389,60 @@
         document.getElementById("labelAutoAdvanceSec").textContent = val === 0 ? "수동 (0초)" : `${val}초`;
       });
 
-      document.getElementById("btnSaveSettings").addEventListener("click", () => {
+      document.getElementById("btnPullFromSupabase").addEventListener("click", async () => {
+        state.settings.supabaseUrl = document.getElementById("inputSupabaseUrl").value.trim();
+        state.settings.supabaseKey = document.getElementById("inputSupabaseKey").value.trim();
+        saveToStorage();
+        const msgBox = document.getElementById("supabaseSyncModalMsg");
+        msgBox.classList.remove("hidden");
+        msgBox.textContent = "Supabase에서 vocab_entries 데이터를 불러오는 중...";
+        const ok = await fetchEntriesFromSupabase();
+        msgBox.textContent = ok
+          ? `✅ Supabase에서 총 ${state.entries.length}개의 단어 행을 불러왔습니다. (테이블이 비어 있으면 0개로 표시됩니다)`
+          : "❌ 불러오기 실패: Project URL, API Key, 또는 SQL Editor에서 vocab_entries 테이블 생성 여부를 확인해 주세요.";
+      });
+
+      document.getElementById("btnPushLocalToSupabase").addEventListener("click", async () => {
+        state.settings.supabaseUrl = document.getElementById("inputSupabaseUrl").value.trim();
+        state.settings.supabaseKey = document.getElementById("inputSupabaseKey").value.trim();
+        saveToStorage();
+        const msgBox = document.getElementById("supabaseSyncModalMsg");
+        msgBox.classList.remove("hidden");
+        msgBox.textContent = "현재 단어들을 Supabase DB로 업로드 중...";
+        const ok = await pushEntriesToSupabase(state.entries);
+        msgBox.textContent = ok
+          ? `✅ 성공적으로 업로드 및 동기화되었습니다! (총 ${state.entries.length}개 행)`
+          : "❌ 업로드 실패: Supabase SQL Editor에서 테이블 및 RLS 정책 생성 SQL을 먼저 실행했는지 확인해 주세요.";
+      });
+
+      document.getElementById("btnClearDefaultSamples").addEventListener("click", async () => {
+        if (!confirm("정말 모든 단어 데이터를 초기화하시겠습니까?\n로컬 브라우저에 저장된 단어 및 연동된 Supabase DB 데이터가 모두 삭제됩니다.")) {
+          return;
+        }
+        state.entries = [];
+        state.inkDataMap = {};
+        saveToStorage();
+        renderFilterDropdowns();
+        renderVocabList();
+
+        let extraMsg = "";
+        if (hasSupabaseConfig()) {
+          try {
+            const baseUrl = state.settings.supabaseUrl.replace(/\/+$/, "");
+            await fetch(baseUrl + "/rest/v1/vocab_entries?id=neq.00000000-0000-0000-0000-000000000000", {
+              method: "DELETE",
+              headers: getSupabaseHeaders()
+            });
+            extraMsg = " 및 Supabase 원격 DB";
+          } catch (_e) {}
+        }
+
+        const msgBox = document.getElementById("supabaseSyncModalMsg");
+        msgBox.classList.remove("hidden");
+        msgBox.textContent = `🗑️ 로컬 브라우저${extraMsg}의 모든 단어 데이터가 완전히 초기화되었습니다.`;
+      });
+
+      document.getElementById("btnSaveSettings").addEventListener("click", async () => {
         state.settings.showPhonetic = document.getElementById("chkShowPhonetic").checked;
         state.settings.showPos = document.getElementById("chkShowPos").checked;
         state.settings.showExample = document.getElementById("chkShowExample").checked;
@@ -1690,14 +2451,13 @@
         state.settings.supabaseUrl = document.getElementById("inputSupabaseUrl").value.trim();
         state.settings.supabaseKey = document.getElementById("inputSupabaseKey").value.trim();
 
-        if (state.settings.supabaseUrl && state.settings.supabaseKey) {
-          document.getElementById("dbStatusBadge").innerHTML =
-            '<span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> Supabase Cloud Connected';
-        }
-
         saveToStorage();
         renderVocabList();
         modalSettings.classList.add("hidden");
+
+        if (hasSupabaseConfig()) {
+          await fetchEntriesFromSupabase();
+        }
       });
 
       // 9. SQL & Android 코드 뷰어 모달
