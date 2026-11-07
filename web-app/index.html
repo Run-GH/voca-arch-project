@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VocaArch — 영단어 암기 마스터 (Web &amp; Android 통합 워크스페이스)</title>
+  <title>VocaBokka — 영단어 암기 마스터</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <!-- Tesseract.js (클라이언트 온디바이스 OCR 라이브러리) -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -45,17 +45,24 @@
     <div class="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2">
       <!-- 로고 & 프로젝트 상태 -->
       <div class="flex items-center gap-2.5">
-        <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-extrabold text-lg shadow-sm">
-          V
+        <!-- 심플 & 강렬한 VocaBokka 시그니처 로고 -->
+        <div class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-indigo-700 via-indigo-600 to-violet-500 flex items-center justify-center shadow-md shadow-indigo-500/30 ring-1 ring-white/30 shrink-0 select-none">
+          <span class="text-white font-black text-lg sm:text-xl tracking-tight flex items-baseline">
+            V<span class="text-amber-300 font-extrabold text-sm sm:text-base ml-[-1px]">B</span>
+          </span>
+          <span class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-white"></span>
         </div>
         <div>
           <div class="flex items-center gap-2 flex-wrap">
-            <h1 class="font-bold text-base sm:text-lg text-slate-900 tracking-tight">VocaArch 단어장</h1>
+            <h1 class="font-black text-base sm:text-lg text-slate-900 tracking-tight flex items-center gap-1.5">
+              <span>Voca<span class="text-indigo-600">Bokka</span></span>
+              <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-200/80 rounded-md px-1.5 py-0.5 tracking-normal">보카볼까?</span>
+            </h1>
             
             <!-- 온라인 / 오프라인 모드 토글 스위치 버튼 -->
             <button id="btnHeaderModeToggle" type="button" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition shadow-2xs cursor-pointer" title="클릭하여 온라인 / 오프라인 모드 수동 전환">
               <span id="headerModeIcon">🌐</span>
-              <span id="headerModeText">온라인 모드</span>
+              <span id="headerModeText">온라인</span>
             </button>
 
             <!-- 네트워크 신호 세기 / Wi-Fi 상태 뱃지 -->
@@ -63,12 +70,12 @@
               📶 상태 감지 중...
             </span>
 
-            <span id="dbStatusBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span id="dbStatusBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200" title="로컬 저장소 모드">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-              Local IndexedDB + Supabase Ready
+              로컬
             </span>
           </div>
-          <p class="text-xs text-slate-500 hidden sm:block">다품사 행 자동 분리 · 누락 발음기호/음성 자동 보강 · 눈 아이콘 필기 스크래치패드</p>
+          <p class="text-xs text-slate-500 hidden sm:block">단어 볼까? 스마트 플래시카드 &amp; 다품사 통합 암기 시스템</p>
         </div>
       </div>
 
@@ -192,7 +199,7 @@
           </button>
         </div>
 
-        <span id="summaryCounter" class="text-xs font-medium text-slate-500 pl-1">총 0개 행</span>
+        <span id="summaryCounter" class="text-xs font-semibold text-slate-500 pl-1">총 0개 행 (0 단어)</span>
       </div>
     </div>
   </section>
@@ -1193,11 +1200,11 @@
         if (isOnlineMode) {
           headerBtn.className = "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition shadow-2xs cursor-pointer";
           headerIcon.textContent = "🌐";
-          headerText.textContent = "온라인 모드 (Supabase)";
+          headerText.textContent = "온라인";
         } else {
           headerBtn.className = "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition shadow-2xs cursor-pointer";
           headerIcon.textContent = "📂";
-          headerText.textContent = "오프라인 모드 (JSON/CSV)";
+          headerText.textContent = "오프라인";
         }
       }
 
@@ -1363,18 +1370,20 @@
     function setSyncStatusBanner(msg, isError) {
       const badge = document.getElementById("dbStatusBadge");
       if (!badge) return;
+      badge.title = msg; // 툴팁에 상세 상태 메시지 표시
+
       if (isError) {
-        badge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200";
-        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> ' + escapeHtml(msg);
+        badge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200";
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> 연결 오류';
       } else if (state.settings.networkMode === "OFFLINE") {
-        badge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200";
-        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> ' + escapeHtml(msg);
+        badge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200";
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> 로컬';
       } else if (hasSupabaseConfig()) {
-        badge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200";
-        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> ' + escapeHtml(msg);
+        badge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200";
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> DB연동';
       } else {
-        badge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200";
-        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ' + escapeHtml(msg);
+        badge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200";
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> 로컬';
       }
     }
 
@@ -1900,7 +1909,10 @@
       const { showPhonetic, showPos, showExample } = state.settings;
       const { wordCol: isWordVisible, meaningCol: isMeaningVisible } = state.visibility;
 
-      document.getElementById("summaryCounter").textContent = `총 ${list.length}개 행`;
+      const uniqueWordCount = new Set(
+        list.map((e) => (e.word || "").trim().toLowerCase()).filter(Boolean)
+      ).size;
+      document.getElementById("summaryCounter").textContent = `총 ${list.length}개 행 (${uniqueWordCount} 단어)`;
       document.getElementById("fontScaleLabel").textContent = `${Math.round(scale * 100)}%`;
 
       // 상단 눈 아이콘 배지 상태 업데이트
