@@ -29,6 +29,13 @@
       background: #cbd5e1;
       border-radius: 9999px;
     }
+    @keyframes slideInUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .toast-anim {
+      animation: slideInUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -42,8 +49,20 @@
           V
         </div>
         <div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
             <h1 class="font-bold text-base sm:text-lg text-slate-900 tracking-tight">VocaArch 단어장</h1>
+            
+            <!-- 온라인 / 오프라인 모드 토글 스위치 버튼 -->
+            <button id="btnHeaderModeToggle" type="button" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition shadow-2xs cursor-pointer" title="클릭하여 온라인 / 오프라인 모드 수동 전환">
+              <span id="headerModeIcon">🌐</span>
+              <span id="headerModeText">온라인 모드</span>
+            </button>
+
+            <!-- 네트워크 신호 세기 / Wi-Fi 상태 뱃지 -->
+            <span id="headerSignalBadge" class="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200" title="현재 네트워크 상태 및 신호 강도">
+              📶 상태 감지 중...
+            </span>
+
             <span id="dbStatusBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
               Local IndexedDB + Supabase Ready
@@ -434,10 +453,14 @@
       <div class="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-200 space-y-2.5">
         <h3 class="text-sm font-bold text-indigo-950">2. 외부 파일을 읽어들여 DB에 인덱싱 (Import &amp; Index)</h3>
         <p class="text-xs text-indigo-800">CSV 또는 JSON 파일을 선택하면 품사별 정규화 및 누락 발음기호 조회 후 DB에 고속 인덱싱합니다.</p>
-        <div class="flex items-center gap-2 pt-1">
+        <div class="flex flex-wrap items-center gap-2 pt-1">
           <label class="cursor-pointer px-4 py-2 rounded-xl bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-300 text-xs font-bold shadow-2xs transition">
             <span>📤 CSV / JSON 파일 선택하여 DB 인덱싱</span>
             <input id="inputImportFile" type="file" accept=".csv,.json" class="hidden" />
+          </label>
+          <label class="cursor-pointer px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-2xs transition">
+            <span>📂 오프라인 모드 단어장 파일로 로드</span>
+            <input id="inputImportAsOffline" type="file" accept=".csv,.json" class="hidden" />
           </label>
         </div>
       </div>
@@ -452,8 +475,85 @@
   <div id="modalSettings" class="fixed inset-0 z-50 hidden bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
     <div class="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 my-8">
       <div class="flex items-center justify-between border-b border-slate-200 pb-3">
-        <h2 class="text-base sm:text-lg font-bold text-slate-900">⚙️ 화면 표시 항목 및 플래시카드/DB 설정</h2>
+        <h2 class="text-base sm:text-lg font-bold text-slate-900">⚙️ 화면 표시 항목 및 네트워크/DB 설정</h2>
         <button id="btnCloseSettingsModal" type="button" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+
+      <!-- ========================================================= -->
+      <!-- 🌐 온라인 / 오프라인 모드 & 네트워크 상태 감지 자동 변환     -->
+      <!-- ========================================================= -->
+      <div class="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-200 space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1.5">
+            <span class="text-base">🌐</span>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-950">온라인 / 오프라인 모드 및 자동 변환</h3>
+          </div>
+          <span id="settingsCurrentSignal" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white border border-indigo-200 text-indigo-700 shadow-2xs">
+            📶 신호 감지 중...
+          </span>
+        </div>
+
+        <!-- 1) 모드 수동 선택 라디오 카드 -->
+        <div class="grid grid-cols-2 gap-2">
+          <label id="lblModeOnline" class="flex items-start gap-2 p-2.5 rounded-xl border border-indigo-400 bg-white cursor-pointer shadow-2xs transition">
+            <input type="radio" name="radioNetworkMode" id="radioModeOnline" value="ONLINE" class="mt-0.5 accent-indigo-600" />
+            <div>
+              <div class="text-xs font-bold text-slate-800 flex items-center gap-1">
+                <span>🌐 온라인 모드</span>
+              </div>
+              <div class="text-[10px] text-slate-500 leading-tight mt-0.5">Supabase DB 실시간 동기화</div>
+            </div>
+          </label>
+          <label id="lblModeOffline" class="flex items-start gap-2 p-2.5 rounded-xl border border-slate-200 bg-white cursor-pointer shadow-2xs transition">
+            <input type="radio" name="radioNetworkMode" id="radioModeOffline" value="OFFLINE" class="mt-0.5 accent-indigo-600" />
+            <div>
+              <div class="text-xs font-bold text-slate-800 flex items-center gap-1">
+                <span>📂 오프라인 모드</span>
+              </div>
+              <div class="text-[10px] text-slate-500 leading-tight mt-0.5">JSON / CSV 파일에서 읽기</div>
+            </div>
+          </label>
+        </div>
+
+        <!-- 2) 자동 변환 모드 토글 (on / off) -->
+        <label class="flex items-start justify-between gap-3 p-3 rounded-xl bg-white border border-indigo-200 cursor-pointer shadow-2xs">
+          <div class="space-y-0.5">
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs font-bold text-slate-900">네트워크 감지 자동 변환 모드</span>
+              <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700">Auto Switch</span>
+            </div>
+            <p class="text-[11px] text-slate-600 leading-snug">
+              ON 시 Wi-Fi 환경에서는 <strong>온라인 모드</strong>, Wi-Fi 연결 해제 또는 신호 세기(네트워크 속도) 저하 시 <strong>오프라인 모드</strong>로 자동 변환합니다.
+            </p>
+          </div>
+          <input id="chkAutoSwitchNetwork" type="checkbox" checked class="w-4 h-4 mt-0.5 accent-indigo-600 rounded" />
+        </label>
+
+        <!-- 3) 자동 변환 신호 세기 기준 & 오프라인 파일 로드 -->
+        <div class="space-y-2 pt-1">
+          <div class="flex items-center justify-between text-xs">
+            <span class="text-[11px] font-semibold text-slate-700">오프라인 전환 신호 세기 기준:</span>
+            <select id="selectWeakThreshold" class="rounded-lg border border-slate-300 px-2 py-1 text-xs font-medium bg-white text-slate-800 focus:outline-indigo-500">
+              <option value="MEDIUM">보통 이하 (3G 이하 또는 지연 600ms+)</option>
+              <option value="WEAK">매우 약함 (2G 이하 또는 지연 1200ms+)</option>
+              <option value="DISCONNECT_ONLY">완전 연결 끊김 시에만 (Offline)</option>
+            </select>
+          </div>
+
+          <!-- 오프라인 모드에서 읽어올 JSON/CSV 파일 선택 -->
+          <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold text-slate-700">오프라인용 단어장 파일 (.json, .csv):</span>
+              <label class="cursor-pointer px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-2xs transition">
+                <span>📁 파일 선택</span>
+                <input id="inputOfflineFile" type="file" accept=".json,.csv" class="hidden" />
+              </label>
+            </div>
+            <div id="offlineFileInfo" class="text-[11px] text-slate-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200 truncate">
+              불러온 파일 없음 (마지막 캐시된 오프라인 데이터 사용)
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 컬럼 내 보여줄 내용 선택 (발음기호, 품사, 예시) -->
@@ -741,6 +841,8 @@
 
     const state = {
       entries: [],
+      // 오프라인 전용 캐시 및 파일 로드 목록
+      offlineEntries: [],
       settings: {
         fontSizeScale: 1.0,
         showPhonetic: true,
@@ -749,7 +851,22 @@
         flashcardAutoAdvanceSec: 3,
         flashcardInitialSide: "WORD",
         supabaseUrl: "",
-        supabaseKey: ""
+        supabaseKey: "",
+        // 온라인 / 오프라인 모드 및 자동 변환 설정
+        networkMode: "ONLINE", // "ONLINE" | "OFFLINE"
+        autoSwitchNetwork: true, // 자동 변환 모드 on / off
+        weakSignalThreshold: "MEDIUM", // "MEDIUM" | "WEAK" | "DISCONNECT_ONLY"
+        offlineFileName: "",
+        offlineWordCount: 0
+      },
+      networkInfo: {
+        isOnline: true,
+        isWifi: true,
+        signalLevel: "GOOD", // "GOOD" | "WEAK" | "OFFLINE"
+        effectiveType: "4g",
+        downlink: 10,
+        rtt: 50,
+        label: "📶 감지 중..."
       },
       filters: {
         bookTitle: "",
@@ -780,27 +897,445 @@
       pendingAudioTargetId: null
     };
 
+    // =========================================================================
+    // 알림 토스트 (Toast Notifications)
+    // =========================================================================
+    function showToast(msg, type = "info") {
+      const container = document.getElementById("toastContainer");
+      if (!container) return;
+      const toast = document.createElement("div");
+      const bgMap = {
+        info: "bg-slate-900 text-white border-slate-700",
+        success: "bg-emerald-600 text-white border-emerald-500",
+        warn: "bg-amber-600 text-white border-amber-500",
+        error: "bg-rose-600 text-white border-rose-500"
+      };
+      const iconMap = {
+        info: "ℹ️",
+        success: "✅",
+        warn: "⚠️",
+        error: "❌"
+      };
+      toast.className = `toast-anim pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-2xl shadow-xl border text-xs sm:text-sm font-semibold max-w-sm sm:max-w-md ${bgMap[type] || bgMap.info}`;
+      toast.innerHTML = `
+        <span class="text-base">${iconMap[type] || 'ℹ️'}</span>
+        <span class="flex-1 leading-snug">${escapeHtml(msg)}</span>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.transition = "opacity 0.3s ease, transform 0.3s ease";
+        toast.style.opacity = "0";
+        toast.style.transform = "translateY(10px)";
+        setTimeout(() => toast.remove(), 320);
+      }, 3500);
+    }
+
     // LocalStorage 안전 로드/저장
     function loadFromStorage() {
       try {
         const savedEntries = localStorage.getItem("vocaarch_entries_v1");
         const savedSettings = localStorage.getItem("vocaarch_settings_v1");
-        state.entries = savedEntries ? JSON.parse(savedEntries) : [...INITIAL_VOCAB_DATA];
+        const savedOfflineEntries = localStorage.getItem("vocaarch_offline_entries_v1");
+
         if (savedSettings) {
           state.settings = { ...state.settings, ...JSON.parse(savedSettings) };
         }
+
+        if (savedOfflineEntries) {
+          try {
+            state.offlineEntries = JSON.parse(savedOfflineEntries);
+          } catch (_e) {
+            state.offlineEntries = [...INITIAL_VOCAB_DATA];
+          }
+        } else {
+          state.offlineEntries = [...INITIAL_VOCAB_DATA];
+        }
+
+        // 현재 모드에 따라 데이터 소스 로드 (OFFLINE: 오프라인 데이터, ONLINE: 온라인 데이터)
+        if (state.settings.networkMode === "OFFLINE") {
+          state.entries = state.offlineEntries.length > 0 ? [...state.offlineEntries] : [...INITIAL_VOCAB_DATA];
+        } else {
+          state.entries = savedEntries ? JSON.parse(savedEntries) : [...INITIAL_VOCAB_DATA];
+        }
       } catch (_e) {
         state.entries = [...INITIAL_VOCAB_DATA];
+        state.offlineEntries = [...INITIAL_VOCAB_DATA];
       }
     }
 
     function saveToStorage() {
       try {
-        localStorage.setItem("vocaarch_entries_v1", JSON.stringify(state.entries));
         localStorage.setItem("vocaarch_settings_v1", JSON.stringify(state.settings));
+        if (state.settings.networkMode === "OFFLINE") {
+          state.offlineEntries = [...state.entries];
+          localStorage.setItem("vocaarch_offline_entries_v1", JSON.stringify(state.offlineEntries));
+        } else {
+          localStorage.setItem("vocaarch_entries_v1", JSON.stringify(state.entries));
+          // 온라인 모드에서도 단어 목록을 오프라인 백업 캐시에 항상 최신화
+          localStorage.setItem("vocaarch_offline_entries_v1", JSON.stringify(state.entries));
+          state.offlineEntries = [...state.entries];
+        }
       } catch (_e) {
         // Ignore sandbox quota issues
       }
+    }
+
+    // =========================================================================
+    // 오프라인 모드용 파일 파싱 및 로드 (JSON or CSV)
+    // =========================================================================
+    function parseUploadedFileContent(text, filename) {
+      const lower = (filename || "").toLowerCase();
+      const entries = [];
+      if (lower.endsWith(".json")) {
+        try {
+          const arr = JSON.parse(text);
+          if (Array.isArray(arr)) {
+            for (let i = 0; i < arr.length; i++) {
+              const item = arr[i];
+              if (!item || !item.word) continue;
+              entries.push({
+                id: item.id || ("v-off-" + Date.now() + "-" + i),
+                book_title: item.book_title || null,
+                chapter_name: item.chapter_name || null,
+                word: String(item.word).trim(),
+                phonetic: item.phonetic || null,
+                audio_url: item.audio_url || "",
+                part_of_speech: item.part_of_speech || "n.",
+                meaning_ko: String(item.meaning_ko || item.meaning || "").trim(),
+                example_sentence: item.example_sentence || null,
+                attempt_count: Number(item.attempt_count) || 0,
+                wrong_count: Number(item.wrong_count) || 0,
+                error_rate: Number(item.error_rate) || 0.0,
+                is_last_wrong: Boolean(item.is_last_wrong),
+                seq_order: Number(item.seq_order) || (i + 1)
+              });
+            }
+          }
+        } catch (e) {
+          console.error("JSON 파싱 오류:", e);
+        }
+      } else {
+        // CSV 파일 파싱
+        const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
+        for (let i = 1; i < lines.length; i++) {
+          const cols = parseCsvRow(lines[i]);
+          if (cols.length < 4) continue;
+          const word = (cols[2] || cols[0] || "").trim();
+          if (!word) continue;
+          entries.push({
+            id: "v-off-" + Date.now() + "-" + i,
+            book_title: (cols[0] || "").trim() || null,
+            chapter_name: (cols[1] || "").trim() || null,
+            word,
+            phonetic: (cols[3] || "").trim() || null,
+            audio_url: "",
+            part_of_speech: (cols[4] || "").trim() || "n.",
+            meaning_ko: (cols[5] || "").trim(),
+            example_sentence: cols[6] ? cols[6].trim() : null,
+            attempt_count: Number(cols[7]) || 0,
+            wrong_count: Number(cols[8]) || 0,
+            error_rate: Number(cols[9]) || 0.0,
+            is_last_wrong: false,
+            seq_order: i
+          });
+        }
+      }
+      return entries;
+    }
+
+    async function handleOfflineFileSelect(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const text = String(reader.result || "");
+        const parsed = parseUploadedFileContent(text, file.name);
+        if (parsed.length === 0) {
+          showToast(`❌ "${file.name}" 파일에서 유효한 단어 데이터를 찾지 못했습니다.`, "error");
+          return;
+        }
+
+        state.offlineEntries = parsed;
+        state.settings.offlineFileName = file.name;
+        state.settings.offlineWordCount = parsed.length;
+        localStorage.setItem("vocaarch_offline_entries_v1", JSON.stringify(state.offlineEntries));
+        saveToStorage();
+
+        // 현재 모드가 오프라인 모드면 화면 즉시 갱신
+        if (state.settings.networkMode === "OFFLINE") {
+          state.entries = [...state.offlineEntries];
+          renderFilterDropdowns();
+          renderVocabList();
+          setSyncStatusBanner(`오프라인 모드 (${file.name} · ${parsed.length}개 단어)`, false);
+        }
+
+        updateNetworkUI();
+        showToast(`📁 오프라인 파일 "${file.name}" (${parsed.length}개 단어) 로드 완료!`, "success");
+      };
+      reader.readAsText(file, "UTF-8");
+    }
+
+    function loadOfflineDataToEntries() {
+      if (state.offlineEntries && state.offlineEntries.length > 0) {
+        state.entries = [...state.offlineEntries];
+      } else {
+        const savedOffline = localStorage.getItem("vocaarch_offline_entries_v1");
+        if (savedOffline) {
+          try {
+            state.offlineEntries = JSON.parse(savedOffline);
+            state.entries = [...state.offlineEntries];
+          } catch (_e) {
+            state.entries = [...INITIAL_VOCAB_DATA];
+          }
+        } else {
+          state.entries = [...INITIAL_VOCAB_DATA];
+        }
+      }
+      renderFilterDropdowns();
+      renderVocabList();
+    }
+
+    // =========================================================================
+    // 네트워크 상태 & Wi-Fi 신호 세기 감지 및 자동 변환
+    // =========================================================================
+    async function evaluateNetworkSignal() {
+      const isBrowserOnline = Boolean(navigator.onLine);
+      if (!isBrowserOnline) {
+        return {
+          isOnline: false,
+          isWifi: false,
+          signalLevel: "OFFLINE",
+          isWeak: true,
+          label: "📵 연결 끊김 (오프라인)",
+          detail: "인터넷 연결 끊김"
+        };
+      }
+
+      const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      const type = conn ? String(conn.type || "unknown") : "unknown";
+      const effectiveType = conn ? String(conn.effectiveType || "4g") : "4g";
+      const downlink = conn && typeof conn.downlink === "number" ? conn.downlink : 10;
+      const rtt = conn && typeof conn.rtt === "number" ? conn.rtt : 50;
+
+      // Wi-Fi 환경 판정: type === 'wifi' 또는 모바일(cellular)이 아닌 연결
+      const isCellular = type === "cellular";
+      const isWifi = type === "wifi" || (!isCellular && (type === "unknown" || type === "ethernet"));
+
+      // 신호 세기 및 핑(RTT) 측정
+      let pingRtt = rtt;
+      let pingOk = true;
+      try {
+        const pingStart = performance.now();
+        const testUrl = (state.settings.supabaseUrl && state.settings.supabaseUrl.startsWith("http"))
+          ? state.settings.supabaseUrl.replace(/\/+$/, "") + "/rest/v1/"
+          : "https://www.google.com/favicon.ico";
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 2000);
+        await fetch(testUrl, { method: "HEAD", mode: "no-cors", cache: "no-store", signal: ctrl.signal });
+        clearTimeout(timer);
+        pingRtt = Math.round(performance.now() - pingStart);
+      } catch (_e) {
+        pingOk = false;
+        pingRtt = Math.max(rtt, 1500);
+      }
+
+      const threshold = state.settings.weakSignalThreshold || "MEDIUM";
+      let isWeak = false;
+
+      if (!pingOk && threshold !== "DISCONNECT_ONLY") {
+        isWeak = true;
+      } else if (threshold === "MEDIUM") {
+        // 3G 이하, 혹은 대역폭 1.5Mbps 미만, 혹은 RTT 600ms 초과 시 신호 약함으로 판단
+        if (effectiveType === "2g" || effectiveType === "slow-2g" || effectiveType === "3g" || downlink < 1.5 || pingRtt > 600) {
+          isWeak = true;
+        }
+      } else if (threshold === "WEAK") {
+        // 2G 이하, 혹은 대역폭 0.5Mbps 미만, 혹은 RTT 1200ms 초과 시
+        if (effectiveType === "2g" || effectiveType === "slow-2g" || downlink < 0.5 || pingRtt > 1200) {
+          isWeak = true;
+        }
+      }
+
+      let signalLevel = "GOOD";
+      let label = "📶 Wi-Fi 양호";
+      if (!isWifi) {
+        signalLevel = "WEAK";
+        label = `⚠️ Wi-Fi 미연결 (${isCellular ? "셀룰러" : type})`;
+      } else if (isWeak) {
+        signalLevel = "WEAK";
+        label = `⚠️ Wi-Fi 신호 약함 (${pingRtt}ms)`;
+      } else {
+        signalLevel = "GOOD";
+        label = `📶 Wi-Fi 양호 (${pingRtt}ms)`;
+      }
+
+      return {
+        isOnline: true,
+        isWifi,
+        signalLevel,
+        isWeak,
+        pingRtt,
+        downlink,
+        effectiveType,
+        label,
+        detail: `${isWifi ? "Wi-Fi" : "모바일/기타"} · ${effectiveType.toUpperCase()} · 지연: ${pingRtt}ms`
+      };
+    }
+
+    function updateNetworkUI() {
+      const mode = state.settings.networkMode;
+      const isOnlineMode = mode === "ONLINE";
+
+      // 1. 상단 헤더 모드 토글 버튼
+      const headerBtn = document.getElementById("btnHeaderModeToggle");
+      const headerIcon = document.getElementById("headerModeIcon");
+      const headerText = document.getElementById("headerModeText");
+      if (headerBtn && headerIcon && headerText) {
+        if (isOnlineMode) {
+          headerBtn.className = "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition shadow-2xs cursor-pointer";
+          headerIcon.textContent = "🌐";
+          headerText.textContent = "온라인 모드 (Supabase)";
+        } else {
+          headerBtn.className = "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition shadow-2xs cursor-pointer";
+          headerIcon.textContent = "📂";
+          headerText.textContent = "오프라인 모드 (JSON/CSV)";
+        }
+      }
+
+      // 2. 설정 모달 라디오 & 체크박스
+      const radioOnline = document.getElementById("radioModeOnline");
+      const radioOffline = document.getElementById("radioModeOffline");
+      const lblOnline = document.getElementById("lblModeOnline");
+      const lblOffline = document.getElementById("lblModeOffline");
+      if (radioOnline && radioOffline) {
+        radioOnline.checked = isOnlineMode;
+        radioOffline.checked = !isOnlineMode;
+        if (lblOnline && lblOffline) {
+          lblOnline.className = isOnlineMode
+            ? "flex items-start gap-2 p-2.5 rounded-xl border-2 border-indigo-600 bg-indigo-50/50 cursor-pointer shadow-xs transition"
+            : "flex items-start gap-2 p-2.5 rounded-xl border border-slate-200 bg-white cursor-pointer shadow-2xs transition";
+          lblOffline.className = !isOnlineMode
+            ? "flex items-start gap-2 p-2.5 rounded-xl border-2 border-amber-600 bg-amber-50/50 cursor-pointer shadow-xs transition"
+            : "flex items-start gap-2 p-2.5 rounded-xl border border-slate-200 bg-white cursor-pointer shadow-2xs transition";
+        }
+      }
+
+      const chkAuto = document.getElementById("chkAutoSwitchNetwork");
+      if (chkAuto) chkAuto.checked = Boolean(state.settings.autoSwitchNetwork);
+
+      const selThreshold = document.getElementById("selectWeakThreshold");
+      if (selThreshold) selThreshold.value = state.settings.weakSignalThreshold || "MEDIUM";
+
+      const fileInfo = document.getElementById("offlineFileInfo");
+      if (fileInfo) {
+        if (state.settings.offlineFileName) {
+          fileInfo.textContent = `📄 ${state.settings.offlineFileName} (${state.settings.offlineWordCount || state.offlineEntries.length}개 단어 로드됨)`;
+          fileInfo.className = "text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 truncate";
+        } else {
+          fileInfo.textContent = `📄 불러온 파일 없음 (로컬 캐시 ${state.offlineEntries.length}개 단어 보관 중)`;
+          fileInfo.className = "text-[11px] text-slate-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200 truncate";
+        }
+      }
+    }
+
+    function updateSignalBadges(sig) {
+      const headerSignal = document.getElementById("headerSignalBadge");
+      const settingsSignal = document.getElementById("settingsCurrentSignal");
+      if (!sig) return;
+
+      let badgeClass = "bg-slate-100 text-slate-700 border-slate-200";
+      if (!sig.isOnline) {
+        badgeClass = "bg-rose-50 text-rose-700 border-rose-200";
+      } else if (sig.signalLevel === "GOOD") {
+        badgeClass = "bg-emerald-50 text-emerald-700 border-emerald-200";
+      } else {
+        badgeClass = "bg-amber-50 text-amber-700 border-amber-200";
+      }
+
+      if (headerSignal) {
+        headerSignal.textContent = sig.label;
+        headerSignal.className = `hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${badgeClass}`;
+      }
+      if (settingsSignal) {
+        settingsSignal.textContent = sig.label;
+        settingsSignal.className = `text-[11px] font-semibold px-2 py-0.5 rounded-full border shadow-2xs ${badgeClass}`;
+      }
+    }
+
+    async function setNetworkMode(targetMode, isAuto = false) {
+      if (state.settings.networkMode === targetMode && !isAuto) return;
+      state.settings.networkMode = targetMode;
+      saveToStorage();
+      updateNetworkUI();
+
+      if (targetMode === "ONLINE") {
+        if (isAuto) {
+          showToast("📶 Wi-Fi 환경 감지: [온라인 모드]로 자동 변환되었습니다. (Supabase 동기화)", "info");
+        } else {
+          showToast("🌐 [온라인 모드]로 전환되었습니다. (Supabase DB 연동)", "info");
+        }
+
+        if (hasSupabaseConfig()) {
+          await fetchEntriesFromSupabase();
+        } else {
+          setSyncStatusBanner("온라인 모드 (Supabase 미설정 - 설정에서 URL/Key 등록 필요)", false);
+        }
+      } else {
+        if (isAuto) {
+          showToast("⚠️ Wi-Fi 미연결 또는 신호 세기 저하: [오프라인 모드]로 자동 변환되었습니다. (JSON/CSV 데이터 사용)", "warn");
+        } else {
+          showToast("📂 [오프라인 모드]로 전환되었습니다. (JSON/CSV 파일 기반)", "info");
+        }
+
+        loadOfflineDataToEntries();
+        setSyncStatusBanner(
+          `오프라인 모드 (${state.settings.offlineFileName ? state.settings.offlineFileName : "오프라인 캐시"} · ${state.entries.length}개 단어)`,
+          false
+        );
+      }
+    }
+
+    let networkCheckTimer = null;
+    let isCheckingNetwork = false;
+
+    async function checkAndAutoSwitch() {
+      if (isCheckingNetwork) return;
+      isCheckingNetwork = true;
+      try {
+        const signal = await evaluateNetworkSignal();
+        state.networkInfo = signal;
+        updateSignalBadges(signal);
+
+        // 설정에서 자동 변환 모드가 켜져 있는 경우 (on)
+        if (state.settings.autoSwitchNetwork) {
+          // Wi-Fi 연결이 안되어 있거나(!signal.isWifi) 일정 신호 세기 이하(signal.isWeak 또는 !signal.isOnline) -> offline mode
+          if (!signal.isOnline || !signal.isWifi || signal.isWeak) {
+            if (state.settings.networkMode !== "OFFLINE") {
+              await setNetworkMode("OFFLINE", true);
+            }
+          } else if (signal.isWifi && signal.signalLevel === "GOOD") {
+            // Wi-Fi 환경이면서 신호 세기 양호 -> online mode
+            if (state.settings.networkMode !== "ONLINE") {
+              await setNetworkMode("ONLINE", true);
+            }
+          }
+        }
+      } finally {
+        isCheckingNetwork = false;
+      }
+    }
+
+    function initNetworkMonitor() {
+      window.addEventListener("online", () => checkAndAutoSwitch());
+      window.addEventListener("offline", () => checkAndAutoSwitch());
+      const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      if (conn && typeof conn.addEventListener === "function") {
+        conn.addEventListener("change", () => checkAndAutoSwitch());
+      }
+
+      if (networkCheckTimer) clearInterval(networkCheckTimer);
+      // 5초 주기로 신호 세기 및 Wi-Fi 상태 자동 점검
+      networkCheckTimer = setInterval(() => checkAndAutoSwitch(), 5000);
+      checkAndAutoSwitch();
     }
 
     // =========================================================================
@@ -831,6 +1366,9 @@
       if (isError) {
         badge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200";
         badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> ' + escapeHtml(msg);
+      } else if (state.settings.networkMode === "OFFLINE") {
+        badge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200";
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> ' + escapeHtml(msg);
       } else if (hasSupabaseConfig()) {
         badge.className = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200";
         badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> ' + escapeHtml(msg);
@@ -861,6 +1399,10 @@
     }
 
     async function fetchEntriesFromSupabase() {
+      if (state.settings.networkMode === "OFFLINE") {
+        setSyncStatusBanner(`오프라인 모드 (${state.settings.offlineFileName ? state.settings.offlineFileName : "오프라인 캐시"} · ${state.entries.length}개 단어)`, false);
+        return false;
+      }
       if (!hasSupabaseConfig()) return false;
       const baseUrl = state.settings.supabaseUrl.replace(/\/+$/, "");
       try {
@@ -897,6 +1439,10 @@
     }
 
     async function pushEntriesToSupabase(entriesToPush) {
+      if (state.settings.networkMode === "OFFLINE") {
+        showToast("현재 오프라인 모드입니다. 온라인 모드로 전환 후 Supabase에 업로드해주세요.", "warn");
+        return false;
+      }
       if (!hasSupabaseConfig() || !Array.isArray(entriesToPush) || entriesToPush.length === 0) return false;
       const baseUrl = state.settings.supabaseUrl.replace(/\/+$/, "");
       try {
@@ -922,6 +1468,7 @@
     }
 
     async function updateAttemptInSupabase(entry) {
+      if (state.settings.networkMode === "OFFLINE") return;
       if (!hasSupabaseConfig() || !entry) return;
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(entry.id || ""));
       if (!isUuid) {
@@ -1768,11 +2315,29 @@
       );
       const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n");
       downloadFile(csvContent, "voca_arch_export.csv", "text/csv;charset=utf-8;");
+
+      // 내보낸 단어 데이터를 오프라인 기본 데이터로도 즉시 동기화 보존
+      state.offlineEntries = JSON.parse(JSON.stringify(state.entries));
+      state.settings.offlineFileName = "voca_arch_export.csv";
+      state.settings.offlineWordCount = state.entries.length;
+      localStorage.setItem("vocaarch_offline_entries_v1", JSON.stringify(state.offlineEntries));
+      saveToStorage();
+      updateNetworkUI();
+      showToast(`CSV 다운로드 완료! (오프라인 모드 데이터로도 자동 등록되었습니다)`, "success");
     }
 
     function exportToJson() {
       const jsonContent = JSON.stringify(state.entries, null, 2);
       downloadFile(jsonContent, "voca_arch_export.json", "application/json;charset=utf-8;");
+
+      // 내보낸 단어 데이터를 오프라인 기본 데이터로도 즉시 동기화 보존
+      state.offlineEntries = JSON.parse(JSON.stringify(state.entries));
+      state.settings.offlineFileName = "voca_arch_export.json";
+      state.settings.offlineWordCount = state.entries.length;
+      localStorage.setItem("vocaarch_offline_entries_v1", JSON.stringify(state.offlineEntries));
+      saveToStorage();
+      updateNetworkUI();
+      showToast(`JSON 다운로드 완료! (오프라인 모드 데이터로도 자동 등록되었습니다)`, "success");
     }
 
     function parseCsvRow(line) {
@@ -1806,7 +2371,9 @@
       loadFromStorage();
       renderFilterDropdowns();
       renderVocabList();
-      if (hasSupabaseConfig()) {
+      updateNetworkUI();
+      initNetworkMonitor();
+      if (state.settings.networkMode === "ONLINE" && hasSupabaseConfig()) {
         fetchEntriesFromSupabase();
       }
 
@@ -2619,7 +3186,16 @@
         modalOcr.classList.add("hidden");
       });
 
-      // 7. 파일 입출력 (Export / Import) 모달
+      // 7. 상단 헤더 온라인 / 오프라인 모드 토글 버튼
+      const headerModeBtn = document.getElementById("btnHeaderModeToggle");
+      if (headerModeBtn) {
+        headerModeBtn.addEventListener("click", () => {
+          const nextMode = state.settings.networkMode === "ONLINE" ? "OFFLINE" : "ONLINE";
+          setNetworkMode(nextMode, false);
+        });
+      }
+
+      // 8. 파일 입출력 (Export / Import) 모달
       const modalFile = document.getElementById("modalFileIo");
       document.getElementById("btnOpenFileModal").addEventListener("click", () => {
         document.getElementById("fileIoStatusMsg").classList.add("hidden");
@@ -2628,6 +3204,19 @@
       document.getElementById("btnCloseFileModal").addEventListener("click", () => modalFile.classList.add("hidden"));
       document.getElementById("btnExportCsv").addEventListener("click", exportToCsv);
       document.getElementById("btnExportJson").addEventListener("click", exportToJson);
+
+      // 파일 모달: CSV / JSON 파일을 오프라인 모드 데이터 소스로 직접 등록
+      const inputImportAsOffline = document.getElementById("inputImportAsOffline");
+      if (inputImportAsOffline) {
+        inputImportAsOffline.addEventListener("change", (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (file) {
+            handleOfflineFileSelect(file);
+            modalFile.classList.add("hidden");
+          }
+          e.target.value = "";
+        });
+      }
 
       document.getElementById("inputImportFile").addEventListener("change", (e) => {
         const file = e.target.files && e.target.files[0];
@@ -2686,7 +3275,7 @@
         e.target.value = "";
       });
 
-      // 8. 설정 모달 이벤트
+      // 9. 설정 모달 이벤트
       const modalSettings = document.getElementById("modalSettings");
       document.getElementById("btnOpenSettingsModal").addEventListener("click", () => {
         document.getElementById("chkShowPhonetic").checked = state.settings.showPhonetic;
@@ -2699,10 +3288,56 @@
         document.getElementById("inputSupabaseUrl").value = state.settings.supabaseUrl || "";
         document.getElementById("inputSupabaseKey").value = state.settings.supabaseKey || "";
         document.getElementById("supabaseSyncModalMsg").classList.add("hidden");
+
+        updateNetworkUI();
+        evaluateNetworkSignal().then(updateSignalBadges);
         modalSettings.classList.remove("hidden");
       });
 
       document.getElementById("btnCloseSettingsModal").addEventListener("click", () => modalSettings.classList.add("hidden"));
+
+      // 네트워크 모드 라디오 변경 핸들러
+      const radioOnline = document.getElementById("radioModeOnline");
+      const radioOffline = document.getElementById("radioModeOffline");
+      if (radioOnline && radioOffline) {
+        radioOnline.addEventListener("change", () => {
+          if (radioOnline.checked) setNetworkMode("ONLINE", false);
+        });
+        radioOffline.addEventListener("change", () => {
+          if (radioOffline.checked) setNetworkMode("OFFLINE", false);
+        });
+      }
+
+      // 자동 변환 모드 토글 스위치 변경 핸들러
+      const chkAutoSwitch = document.getElementById("chkAutoSwitchNetwork");
+      if (chkAutoSwitch) {
+        chkAutoSwitch.addEventListener("change", (e) => {
+          state.settings.autoSwitchNetwork = e.target.checked;
+          saveToStorage();
+          showToast(`네트워크 감지 자동 변환 모드가 ${e.target.checked ? "켜졌습니다 (ON)" : "꺼졌습니다 (OFF)"}`, "info");
+          if (e.target.checked) checkAndAutoSwitch();
+        });
+      }
+
+      // 신호 세기 기준 셀렉트 변경 핸들러
+      const selThreshold = document.getElementById("selectWeakThreshold");
+      if (selThreshold) {
+        selThreshold.addEventListener("change", (e) => {
+          state.settings.weakSignalThreshold = e.target.value;
+          saveToStorage();
+          checkAndAutoSwitch();
+        });
+      }
+
+      // 설정 모달 내 오프라인 단어장 파일 선택기
+      const inputOffline = document.getElementById("inputOfflineFile");
+      if (inputOffline) {
+        inputOffline.addEventListener("change", (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (file) handleOfflineFileSelect(file);
+          e.target.value = "";
+        });
+      }
 
       document.getElementById("sliderAutoAdvanceSec").addEventListener("input", (e) => {
         const val = Number(e.target.value);
@@ -2715,6 +3350,12 @@
         saveToStorage();
         const msgBox = document.getElementById("supabaseSyncModalMsg");
         msgBox.classList.remove("hidden");
+
+        if (state.settings.networkMode === "OFFLINE") {
+          msgBox.textContent = "⚠️ 현재 오프라인 모드입니다. Supabase에서 불러오려면 상단 또는 설정에서 온라인 모드로 전환해 주세요.";
+          return;
+        }
+
         msgBox.textContent = "Supabase에서 vocab_entries 데이터를 불러오는 중...";
         const ok = await fetchEntriesFromSupabase();
         msgBox.textContent = ok
@@ -2728,6 +3369,12 @@
         saveToStorage();
         const msgBox = document.getElementById("supabaseSyncModalMsg");
         msgBox.classList.remove("hidden");
+
+        if (state.settings.networkMode === "OFFLINE") {
+          msgBox.textContent = "⚠️ 현재 오프라인 모드입니다. Supabase로 업로드하려면 상단 또는 설정에서 온라인 모드로 전환해 주세요.";
+          return;
+        }
+
         msgBox.textContent = "현재 단어들을 Supabase DB로 업로드 중...";
         const ok = await pushEntriesToSupabase(state.entries);
         msgBox.textContent = ok
@@ -2740,13 +3387,14 @@
           return;
         }
         state.entries = [];
+        state.offlineEntries = [];
         state.inkDataMap = {};
         saveToStorage();
         renderFilterDropdowns();
         renderVocabList();
 
         let extraMsg = "";
-        if (hasSupabaseConfig()) {
+        if (state.settings.networkMode === "ONLINE" && hasSupabaseConfig()) {
           try {
             const baseUrl = state.settings.supabaseUrl.replace(/\/+$/, "");
             await fetch(baseUrl + "/rest/v1/vocab_entries?id=neq.00000000-0000-0000-0000-000000000000", {
@@ -2770,21 +3418,31 @@
         state.settings.flashcardInitialSide = document.getElementById("selectFcInitialSide").value;
         state.settings.supabaseUrl = document.getElementById("inputSupabaseUrl").value.trim();
         state.settings.supabaseKey = document.getElementById("inputSupabaseKey").value.trim();
+        state.settings.autoSwitchNetwork = document.getElementById("chkAutoSwitchNetwork").checked;
+        state.settings.weakSignalThreshold = document.getElementById("selectWeakThreshold").value;
+
+        const isOnlineSelected = document.getElementById("radioModeOnline").checked;
+        const targetMode = isOnlineSelected ? "ONLINE" : "OFFLINE";
 
         saveToStorage();
         renderVocabList();
         modalSettings.classList.add("hidden");
 
-        if (hasSupabaseConfig()) {
+        if (state.settings.networkMode !== targetMode) {
+          await setNetworkMode(targetMode, false);
+        } else if (state.settings.networkMode === "ONLINE" && hasSupabaseConfig()) {
           await fetchEntriesFromSupabase();
         }
       });
 
-      // 9. SQL & Android 코드 뷰어 모달
+      // 10. SQL & Android 코드 뷰어 모달
       const modalCode = document.getElementById("modalCodeViewer");
       document.getElementById("btnToggleCodeDrawer").addEventListener("click", () => modalCode.classList.remove("hidden"));
       document.getElementById("btnCloseCodeViewer").addEventListener("click", () => modalCode.classList.add("hidden"));
     });
   </script>
+
+  <!-- 플로팅 토스트 알림 컨테이너 -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
 </body>
 </html>
