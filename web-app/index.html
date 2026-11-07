@@ -106,11 +106,6 @@
         <button id="btnOpenSettingsModal" type="button" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition">
           <span>⚙️ 설정</span>
         </button>
-
-        <!-- 6. 아키텍처 & 안드로이드/SQL 코드 뷰어 탭 전환 -->
-        <button id="btnToggleCodeDrawer" type="button" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-slate-800 hover:bg-slate-900 text-white transition">
-          <span>💻 SQL / Android 코드</span>
-        </button>
       </div>
     </div>
   </header>
@@ -3443,8 +3438,14 @@
 
       // 10. SQL & Android 코드 뷰어 모달
       const modalCode = document.getElementById("modalCodeViewer");
-      document.getElementById("btnToggleCodeDrawer").addEventListener("click", () => modalCode.classList.remove("hidden"));
-      document.getElementById("btnCloseCodeViewer").addEventListener("click", () => modalCode.classList.add("hidden"));
+      const btnToggleCode = document.getElementById("btnToggleCodeDrawer");
+      if (btnToggleCode && modalCode) {
+        btnToggleCode.addEventListener("click", () => modalCode.classList.remove("hidden"));
+      }
+      const btnCloseCode = document.getElementById("btnCloseCodeViewer");
+      if (btnCloseCode && modalCode) {
+        btnCloseCode.addEventListener("click", () => modalCode.classList.add("hidden"));
+      }
     });
   </script>
 
