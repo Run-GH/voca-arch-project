@@ -111,7 +111,7 @@
           </div>
 
           <!-- 책제목 체크박스 팝오버 메뉴 -->
-          <div id="menuBookCheckboxes" class="hidden absolute top-full left-0 mt-1 z-40 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-2.5 text-xs space-y-1">
+          <div id="menuBookCheckboxes" class="hidden absolute top-full left-0 mt-1 z-40 w-64 max-w-[calc(100vw-24px)] bg-white rounded-2xl shadow-xl border border-slate-200 p-2.5 text-xs space-y-1">
             <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 px-1">
               <span class="font-bold text-slate-800">책제목 선택 (복수 가능)</span>
               <div class="flex items-center gap-1.5 text-[11px]">
@@ -137,7 +137,7 @@
           </div>
 
           <!-- 단원 체크박스 팝오버 메뉴 -->
-          <div id="menuChapterCheckboxes" class="hidden absolute top-full left-0 mt-1 z-40 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-2.5 text-xs space-y-1">
+          <div id="menuChapterCheckboxes" class="hidden absolute top-full right-0 sm:right-auto sm:left-0 mt-1 z-40 w-64 max-w-[calc(100vw-24px)] bg-white rounded-2xl shadow-xl border border-slate-200 p-2.5 text-xs space-y-1">
             <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 px-1">
               <span class="font-bold text-slate-800">단원 선택 (복수 가능)</span>
               <div class="flex items-center gap-1.5 text-[11px]">
@@ -1845,17 +1845,40 @@
       const btnChapterToggle = document.getElementById("btnChapterDropdownToggle");
       const menuChapter = document.getElementById("menuChapterCheckboxes");
 
+      // 화면 이탈 방지 스마트 토글 함수
+      function toggleFilterDropdownMenu(menuToOpen, menuToClose) {
+        menuToClose.classList.add("hidden");
+        const willOpen = menuToOpen.classList.contains("hidden");
+        if (willOpen) {
+          menuToOpen.classList.remove("hidden");
+          // 화면 우측 및 좌측 이탈 방지 동적 정렬
+          menuToOpen.style.left = "";
+          menuToOpen.style.right = "";
+          const rect = menuToOpen.getBoundingClientRect();
+          const vw = window.innerWidth;
+          if (rect.right > vw - 12) {
+            menuToOpen.style.left = "auto";
+            menuToOpen.style.right = "0px";
+          }
+          const updatedRect = menuToOpen.getBoundingClientRect();
+          if (updatedRect.left < 12) {
+            menuToOpen.style.left = "0px";
+            menuToOpen.style.right = "auto";
+          }
+        } else {
+          menuToOpen.classList.add("hidden");
+        }
+      }
+
       // 드롭다운 열기/닫기 토글
       btnBookToggle.addEventListener("click", (e) => {
         e.stopPropagation();
-        menuChapter.classList.add("hidden");
-        menuBook.classList.toggle("hidden");
+        toggleFilterDropdownMenu(menuBook, menuChapter);
       });
 
       btnChapterToggle.addEventListener("click", (e) => {
         e.stopPropagation();
-        menuBook.classList.add("hidden");
-        menuChapter.classList.toggle("hidden");
+        toggleFilterDropdownMenu(menuChapter, menuBook);
       });
 
       // 팝오버 내부 클릭 시 닫히지 않도록 전파 방지
