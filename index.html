@@ -98,20 +98,58 @@
   <!-- 필터(책제목/단원) 및 5종 정렬 컨트롤 바 -->
   <section class="bg-white border-b border-slate-200">
     <div class="max-w-7xl mx-auto px-3 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
-      <!-- 책제목 & 단원 필터 -->
+      <!-- 책제목 & 단원 필터 (체크박스 다중 선택 지원) -->
       <div class="flex flex-wrap items-center gap-2">
-        <div class="flex items-center gap-1.5">
-          <label for="selectBookFilter" class="text-xs font-semibold text-slate-600">책제목:</label>
-          <select id="selectBookFilter" class="text-xs sm:text-sm rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            <option value="">전체 (선택 안 함)</option>
-          </select>
+        <!-- 책제목 멀티 선택 드롭다운 -->
+        <div class="relative">
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs font-semibold text-slate-600">책제목:</span>
+            <button id="btnBookDropdownToggle" type="button" class="inline-flex items-center justify-between gap-2 min-w-[120px] max-w-[210px] text-xs sm:text-sm rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs transition">
+              <span id="btnBookDropdownLabel" class="truncate">전체 (모든 책)</span>
+              <svg class="w-3.5 h-3.5 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+          </div>
+
+          <!-- 책제목 체크박스 팝오버 메뉴 -->
+          <div id="menuBookCheckboxes" class="hidden absolute top-full left-0 mt-1 z-40 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-2.5 text-xs space-y-1">
+            <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 px-1">
+              <span class="font-bold text-slate-800">책제목 선택 (복수 가능)</span>
+              <div class="flex items-center gap-1.5 text-[11px]">
+                <button id="btnBookSelectAll" type="button" class="text-indigo-600 hover:underline font-bold">전체</button>
+                <span class="text-slate-300">|</span>
+                <button id="btnBookClearAll" type="button" class="text-slate-500 hover:underline">해제</button>
+              </div>
+            </div>
+            <div id="listBookCheckboxes" class="max-h-52 overflow-y-auto space-y-0.5 custom-scrollbar py-1">
+              <!-- JS 동적 렌더링 -->
+            </div>
+          </div>
         </div>
 
-        <div class="flex items-center gap-1.5">
-          <label for="selectChapterFilter" class="text-xs font-semibold text-slate-600">단원:</label>
-          <select id="selectChapterFilter" class="text-xs sm:text-sm rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            <option value="">전체 (선택 안 함)</option>
-          </select>
+        <!-- 단원 멀티 선택 드롭다운 -->
+        <div class="relative">
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs font-semibold text-slate-600">단원:</span>
+            <button id="btnChapterDropdownToggle" type="button" class="inline-flex items-center justify-between gap-2 min-w-[120px] max-w-[210px] text-xs sm:text-sm rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs transition">
+              <span id="btnChapterDropdownLabel" class="truncate">전체 (모든 단원)</span>
+              <svg class="w-3.5 h-3.5 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+          </div>
+
+          <!-- 단원 체크박스 팝오버 메뉴 -->
+          <div id="menuChapterCheckboxes" class="hidden absolute top-full left-0 mt-1 z-40 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-2.5 text-xs space-y-1">
+            <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 px-1">
+              <span class="font-bold text-slate-800">단원 선택 (복수 가능)</span>
+              <div class="flex items-center gap-1.5 text-[11px]">
+                <button id="btnChapterSelectAll" type="button" class="text-indigo-600 hover:underline font-bold">전체</button>
+                <span class="text-slate-300">|</span>
+                <button id="btnChapterClearAll" type="button" class="text-slate-500 hover:underline">해제</button>
+              </div>
+            </div>
+            <div id="listChapterCheckboxes" class="max-h-52 overflow-y-auto space-y-0.5 custom-scrollbar py-1">
+              <!-- JS 동적 렌더링 -->
+            </div>
+          </div>
         </div>
 
         <div class="flex items-center gap-1.5">
@@ -716,6 +754,8 @@
       filters: {
         bookTitle: "",
         chapterName: "",
+        selectedBooks: [],
+        selectedChapters: [],
         keyword: "",
         sortOrder: "INPUT_ORDER",
         randomSeed: 1
@@ -1044,72 +1084,255 @@
     }
 
     // =========================================================================
-    // 필터링 및 5종 정렬 계산
+    // 필터링 및 5종 정렬 계산 (다품사 단어 그룹 결합 정렬/셔플)
     // =========================================================================
     function getFilteredAndSortedEntries() {
-      const { bookTitle, chapterName, keyword, sortOrder, randomSeed } = state.filters;
+      const { selectedBooks, selectedChapters, keyword, sortOrder, randomSeed } = state.filters;
       const kw = keyword.trim().toLowerCase();
 
+      const selBooks = selectedBooks || [];
+      const selChaps = selectedChapters || [];
+
       const filtered = state.entries.filter((item) => {
-        const matchBook = !bookTitle || (item.book_title || "") === bookTitle;
-        const matchChapter = !chapterName || (item.chapter_name || "") === chapterName;
+        const bookVal = item.book_title ? item.book_title.trim() : "__NONE__";
+        const chapVal = item.chapter_name ? item.chapter_name.trim() : "__NONE__";
+
+        const matchBook =
+          selBooks.length === 0 ||
+          selBooks.includes(bookVal) ||
+          (selBooks.includes("__NONE__") && !item.book_title);
+
+        const matchChapter =
+          selChaps.length === 0 ||
+          selChaps.includes(chapVal) ||
+          (selChaps.includes("__NONE__") && !item.chapter_name);
+
         const matchKw =
           !kw ||
           item.word.toLowerCase().includes(kw) ||
           item.meaning_ko.toLowerCase().includes(kw) ||
           (item.example_sentence || "").toLowerCase().includes(kw);
+
         return matchBook && matchChapter && matchKw;
       });
 
-      const copy = [...filtered];
+      // 동일한 단어(동일 철자)를 하나의 단어 그룹으로 묶어 다품사 행들이 항상 하나의 단어처럼 같이 이동하도록 그룹화
+      const groupsMap = new Map();
+      for (const item of filtered) {
+        const wordKey = item.word.trim().toLowerCase();
+        if (!groupsMap.has(wordKey)) {
+          groupsMap.set(wordKey, {
+            wordKey,
+            word: item.word,
+            entries: []
+          });
+        }
+        groupsMap.get(wordKey).entries.push(item);
+      }
+
+      const groups = Array.from(groupsMap.values()).map((g) => {
+        // 그룹 내부의 다품사 행들은 기본 입력 순서(seq_order) 순으로 정렬 유지
+        g.entries.sort((a, b) => a.seq_order - b.seq_order);
+        const minSeq = Math.min(...g.entries.map((e) => e.seq_order));
+        const maxErrorRate = Math.max(...g.entries.map((e) => e.error_rate || 0));
+        const totalWrong = g.entries.reduce((sum, e) => sum + (e.wrong_count || 0), 0);
+        return {
+          ...g,
+          minSeq,
+          maxErrorRate,
+          totalWrong
+        };
+      });
+
       if (sortOrder === "WORD_ASC") {
-        copy.sort((a, b) => a.word.localeCompare(b.word) || a.part_of_speech.localeCompare(b.part_of_speech));
+        groups.sort((a, b) => a.word.localeCompare(b.word));
       } else if (sortOrder === "WORD_DESC") {
-        copy.sort((a, b) => b.word.localeCompare(a.word) || a.part_of_speech.localeCompare(b.part_of_speech));
+        groups.sort((a, b) => b.word.localeCompare(a.word));
       } else if (sortOrder === "INPUT_ORDER") {
-        copy.sort((a, b) => a.seq_order - b.seq_order);
+        groups.sort((a, b) => a.minSeq - b.minSeq);
       } else if (sortOrder === "ERROR_RATE_DESC") {
-        copy.sort((a, b) => b.error_rate - a.error_rate || b.wrong_count - a.wrong_count);
+        // 오답률이 높은 품사가 포함된 단어 그룹이 우선 배치되고, 그룹 내에서도 오답률 높은 품사 우선
+        groups.sort((a, b) => b.maxErrorRate - a.maxErrorRate || b.totalWrong - a.totalWrong || a.word.localeCompare(b.word));
+        groups.forEach((g) => {
+          g.entries.sort((a, b) => (b.error_rate || 0) - (a.error_rate || 0) || a.seq_order - b.seq_order);
+        });
       } else if (sortOrder === "RANDOM") {
-        // 결정론적 시드 셔플 (오답 체크 시 리스트가 갑자기 뒤섞이지 않도록 유지)
+        // 단어 그룹 단위 결정론적 시드 셔플 (다품사 행들이 흩어지지 않고 하나의 단어처럼 통째로 무작위 이동)
         let seed = randomSeed;
         const nextRand = () => {
           seed = (seed * 1664525 + 1013904223) % 4294967296;
           return seed / 4294967296;
         };
-        for (let i = copy.length - 1; i > 0; i--) {
+        for (let i = groups.length - 1; i > 0; i--) {
           const j = Math.floor(nextRand() * (i + 1));
-          [copy[i], copy[j]] = [copy[j], copy[i]];
+          [groups[i], groups[j]] = [groups[j], groups[i]];
         }
       }
-      return copy;
+
+      // 그룹을 다시 평탄화하여 리스트 반환 (동일 단어의 여러 품사 행들이 항상 연속되어 위치)
+      return groups.flatMap((g) => g.entries);
     }
 
     // =========================================================================
-    // 책제목 & 단원 드롭다운 옵션 갱신
+    // 책제목 & 단원 체크박스 다중 선택 옵션 갱신
     // =========================================================================
     function renderFilterDropdowns() {
-      const bookSelect = document.getElementById("selectBookFilter");
-      const chapSelect = document.getElementById("selectChapterFilter");
+      // 1. 책 목록 집계
+      const bookCounts = new Map();
+      let untaggedBookCount = 0;
+      for (const e of state.entries) {
+        const b = (e.book_title || "").trim();
+        if (b) {
+          bookCounts.set(b, (bookCounts.get(b) || 0) + 1);
+        } else {
+          untaggedBookCount++;
+        }
+      }
+      const allBooks = Array.from(bookCounts.keys()).sort();
 
-      const books = [...new Set(state.entries.map((e) => e.book_title).filter(Boolean))].sort();
-      const currentBook = state.filters.bookTitle;
+      if (!state.filters.selectedBooks) state.filters.selectedBooks = [];
+      const selBooks = state.filters.selectedBooks;
+      const isNoneBooks = selBooks.includes("__NO_SELECTION__");
+      const totalBookOptionsCount = allBooks.length + (untaggedBookCount > 0 ? 1 : 0);
+      const isAllBooks = !isNoneBooks && (selBooks.length === 0 || (totalBookOptionsCount > 0 && selBooks.length === totalBookOptionsCount));
 
-      bookSelect.innerHTML = '<option value="">전체 (선택 안 함)</option>' +
-        books.map((b) => `<option value="${escapeHtml(b)}" ${b === currentBook ? "selected" : ""}>${escapeHtml(b)}</option>`).join("");
+      // 책 드롭다운 라벨 업데이트
+      const bookLabelEl = document.getElementById("btnBookDropdownLabel");
+      if (isNoneBooks) {
+        bookLabelEl.textContent = "선택 없음 (0개)";
+        bookLabelEl.className = "truncate text-slate-400 font-medium";
+      } else if (isAllBooks) {
+        bookLabelEl.textContent = "전체 (모든 책)";
+        bookLabelEl.className = "truncate font-medium text-slate-700";
+      } else if (selBooks.length === 1) {
+        const name = selBooks[0] === "__NONE__" ? "미분류 단어" : selBooks[0];
+        bookLabelEl.textContent = name;
+        bookLabelEl.className = "truncate font-bold text-indigo-700";
+      } else {
+        const first = selBooks[0] === "__NONE__" ? "미분류 단어" : selBooks[0];
+        bookLabelEl.textContent = `${first} 외 ${selBooks.length - 1}개 (${selBooks.length})`;
+        bookLabelEl.className = "truncate font-bold text-indigo-700";
+      }
 
-      const chapters = [
-        ...new Set(
-          state.entries
-            .filter((e) => !currentBook || e.book_title === currentBook)
-            .map((e) => e.chapter_name)
-            .filter(Boolean)
-        )
-      ].sort();
-      const currentChap = state.filters.chapterName;
+      // 책 체크박스 렌더링
+      const bookListContainer = document.getElementById("listBookCheckboxes");
+      let bookHtml = "";
+      if (allBooks.length === 0 && untaggedBookCount === 0) {
+        bookHtml = '<p class="text-slate-400 py-2.5 text-center text-xs">등록된 책이 없습니다</p>';
+      } else {
+        for (const b of allBooks) {
+          const isChecked = !isNoneBooks && (isAllBooks || selBooks.includes(b));
+          const count = bookCounts.get(b);
+          bookHtml += `
+            <label class="flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-indigo-50/70 cursor-pointer text-slate-700 select-none transition">
+              <div class="flex items-center gap-2 min-w-0">
+                <input type="checkbox" data-filter-type="book" value="${escapeHtml(b)}" ${isChecked ? "checked" : ""} class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer" />
+                <span class="truncate font-medium ${isChecked ? 'text-indigo-900 font-bold' : ''}">${escapeHtml(b)}</span>
+              </div>
+              <span class="text-[11px] text-slate-400 font-mono ml-2 shrink-0">${count}</span>
+            </label>
+          `;
+        }
+        if (untaggedBookCount > 0) {
+          const isChecked = !isNoneBooks && (isAllBooks || selBooks.includes("__NONE__"));
+          bookHtml += `
+            <label class="flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-slate-500 select-none border-t border-slate-100 transition mt-1 pt-1.5">
+              <div class="flex items-center gap-2 min-w-0">
+                <input type="checkbox" data-filter-type="book" value="__NONE__" ${isChecked ? "checked" : ""} class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer" />
+                <span class="truncate italic ${isChecked ? 'text-indigo-900 font-bold' : ''}">미분류 단어 (책제목 없음)</span>
+              </div>
+              <span class="text-[11px] text-slate-400 font-mono ml-2 shrink-0">${untaggedBookCount}</span>
+            </label>
+          `;
+        }
+      }
+      bookListContainer.innerHTML = bookHtml;
 
-      chapSelect.innerHTML = '<option value="">전체 (선택 안 함)</option>' +
-        chapters.map((c) => `<option value="${escapeHtml(c)}" ${c === currentChap ? "selected" : ""}>${escapeHtml(c)}</option>`).join("");
+      // 2. 단원 목록 집계 (현재 선택된 책들 기준)
+      const relevantEntries = isNoneBooks
+        ? []
+        : (isAllBooks
+            ? state.entries
+            : state.entries.filter((e) => {
+                const b = (e.book_title || "").trim();
+                return b ? selBooks.includes(b) : selBooks.includes("__NONE__");
+              }));
+
+      const chapCounts = new Map();
+      let untaggedChapCount = 0;
+      for (const e of relevantEntries) {
+        const c = (e.chapter_name || "").trim();
+        if (c) {
+          chapCounts.set(c, (chapCounts.get(c) || 0) + 1);
+        } else {
+          untaggedChapCount++;
+        }
+      }
+      const allChapters = Array.from(chapCounts.keys()).sort();
+
+      // 현재 선택된 단원들 중 유효하지 않은 단원 정리
+      if (!state.filters.selectedChapters) state.filters.selectedChapters = [];
+      if (state.filters.selectedChapters.length > 0 && !state.filters.selectedChapters.includes("__NO_SELECTION__")) {
+        state.filters.selectedChapters = state.filters.selectedChapters.filter((c) => {
+          return c === "__NONE__" ? untaggedChapCount > 0 : chapCounts.has(c);
+        });
+      }
+      const selChaps = state.filters.selectedChapters;
+      const isNoneChaps = selChaps.includes("__NO_SELECTION__");
+      const totalChapOptionsCount = allChapters.length + (untaggedChapCount > 0 ? 1 : 0);
+      const isAllChaps = !isNoneChaps && (selChaps.length === 0 || (totalChapOptionsCount > 0 && selChaps.length === totalChapOptionsCount));
+
+      // 단원 드롭다운 라벨 업데이트
+      const chapLabelEl = document.getElementById("btnChapterDropdownLabel");
+      if (isNoneChaps) {
+        chapLabelEl.textContent = "선택 없음 (0개)";
+        chapLabelEl.className = "truncate text-slate-400 font-medium";
+      } else if (isAllChaps) {
+        chapLabelEl.textContent = "전체 (모든 단원)";
+        chapLabelEl.className = "truncate font-medium text-slate-700";
+      } else if (selChaps.length === 1) {
+        const name = selChaps[0] === "__NONE__" ? "미분류 단원" : selChaps[0];
+        chapLabelEl.textContent = name;
+        chapLabelEl.className = "truncate font-bold text-indigo-700";
+      } else {
+        const first = selChaps[0] === "__NONE__" ? "미분류 단원" : selChaps[0];
+        chapLabelEl.textContent = `${first} 외 ${selChaps.length - 1}개 (${selChaps.length})`;
+        chapLabelEl.className = "truncate font-bold text-indigo-700";
+      }
+
+      // 단원 체크박스 렌더링
+      const chapListContainer = document.getElementById("listChapterCheckboxes");
+      let chapHtml = "";
+      if (allChapters.length === 0 && untaggedChapCount === 0) {
+        chapHtml = '<p class="text-slate-400 py-2.5 text-center text-xs">선택된 책에 단원이 없습니다</p>';
+      } else {
+        for (const c of allChapters) {
+          const isChecked = !isNoneChaps && (isAllChaps || selChaps.includes(c));
+          const count = chapCounts.get(c);
+          chapHtml += `
+            <label class="flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-indigo-50/70 cursor-pointer text-slate-700 select-none transition">
+              <div class="flex items-center gap-2 min-w-0">
+                <input type="checkbox" data-filter-type="chapter" value="${escapeHtml(c)}" ${isChecked ? "checked" : ""} class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer" />
+                <span class="truncate font-medium ${isChecked ? 'text-indigo-900 font-bold' : ''}">${escapeHtml(c)}</span>
+              </div>
+              <span class="text-[11px] text-slate-400 font-mono ml-2 shrink-0">${count}</span>
+            </label>
+          `;
+        }
+        if (untaggedChapCount > 0) {
+          const isChecked = !isNoneChaps && (isAllChaps || selChaps.includes("__NONE__"));
+          chapHtml += `
+            <label class="flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-slate-500 select-none border-t border-slate-100 transition mt-1 pt-1.5">
+              <div class="flex items-center gap-2 min-w-0">
+                <input type="checkbox" data-filter-type="chapter" value="__NONE__" ${isChecked ? "checked" : ""} class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer" />
+                <span class="truncate italic ${isChecked ? 'text-indigo-900 font-bold' : ''}">미분류 단원 (단원명 없음)</span>
+              </div>
+              <span class="text-[11px] text-slate-400 font-mono ml-2 shrink-0">${untaggedChapCount}</span>
+            </label>
+          `;
+        }
+      }
+      chapListContainer.innerHTML = chapHtml;
     }
 
     function escapeHtml(str) {
@@ -1616,16 +1839,90 @@
         renderVocabList();
       });
 
-      // 3. 책제목/단원별 필터 & 5종 정렬 이벤트
-      document.getElementById("selectBookFilter").addEventListener("change", (e) => {
-        state.filters.bookTitle = e.target.value;
-        state.filters.chapterName = "";
+      // 3. 책제목/단원별 멀티 체크박스 드롭다운 필터 & 5종 정렬 이벤트
+      const btnBookToggle = document.getElementById("btnBookDropdownToggle");
+      const menuBook = document.getElementById("menuBookCheckboxes");
+      const btnChapterToggle = document.getElementById("btnChapterDropdownToggle");
+      const menuChapter = document.getElementById("menuChapterCheckboxes");
+
+      // 드롭다운 열기/닫기 토글
+      btnBookToggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        menuChapter.classList.add("hidden");
+        menuBook.classList.toggle("hidden");
+      });
+
+      btnChapterToggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        menuBook.classList.add("hidden");
+        menuChapter.classList.toggle("hidden");
+      });
+
+      // 팝오버 내부 클릭 시 닫히지 않도록 전파 방지
+      menuBook.addEventListener("click", (e) => e.stopPropagation());
+      menuChapter.addEventListener("click", (e) => e.stopPropagation());
+
+      // 바깥 영역 클릭 시 팝오버 닫기
+      document.addEventListener("click", () => {
+        menuBook.classList.add("hidden");
+        menuChapter.classList.add("hidden");
+      });
+
+      // 책제목 체크박스 목록 클릭/변경
+      document.getElementById("listBookCheckboxes").addEventListener("change", () => {
+        const checkedInputs = Array.from(document.querySelectorAll("#listBookCheckboxes input[type='checkbox']:checked"));
+        const allInputs = document.querySelectorAll("#listBookCheckboxes input[type='checkbox']");
+        if (checkedInputs.length === 0) {
+          state.filters.selectedBooks = ["__NO_SELECTION__"];
+        } else if (checkedInputs.length === allInputs.length) {
+          state.filters.selectedBooks = [];
+        } else {
+          state.filters.selectedBooks = checkedInputs.map((i) => i.value);
+        }
         renderFilterDropdowns();
         renderVocabList();
       });
 
-      document.getElementById("selectChapterFilter").addEventListener("change", (e) => {
-        state.filters.chapterName = e.target.value;
+      // 책제목 전체 선택 버튼
+      document.getElementById("btnBookSelectAll").addEventListener("click", () => {
+        state.filters.selectedBooks = [];
+        renderFilterDropdowns();
+        renderVocabList();
+      });
+
+      // 책제목 전체 해제 버튼
+      document.getElementById("btnBookClearAll").addEventListener("click", () => {
+        state.filters.selectedBooks = ["__NO_SELECTION__"];
+        renderFilterDropdowns();
+        renderVocabList();
+      });
+
+      // 단원 체크박스 목록 클릭/변경
+      document.getElementById("listChapterCheckboxes").addEventListener("change", () => {
+        const checkedInputs = Array.from(document.querySelectorAll("#listChapterCheckboxes input[type='checkbox']:checked"));
+        const allInputs = document.querySelectorAll("#listChapterCheckboxes input[type='checkbox']");
+        if (checkedInputs.length === 0) {
+          state.filters.selectedChapters = ["__NO_SELECTION__"];
+        } else if (checkedInputs.length === allInputs.length) {
+          state.filters.selectedChapters = [];
+        } else {
+          state.filters.selectedChapters = checkedInputs.map((i) => i.value);
+        }
+        renderFilterDropdowns();
+        renderVocabList();
+      });
+
+      // 단원 전체 선택 버튼
+      document.getElementById("btnChapterSelectAll").addEventListener("click", () => {
+        state.filters.selectedChapters = [];
+        renderFilterDropdowns();
+        renderVocabList();
+      });
+
+      // 단원 전체 해제 버튼
+      document.getElementById("btnChapterClearAll").addEventListener("click", () => {
+        state.filters.selectedChapters = ["__NO_SELECTION__"];
+        renderFilterDropdowns();
         renderVocabList();
       });
 
