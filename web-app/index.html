@@ -21,6 +21,12 @@
       touch-action: none;
       cursor: crosshair;
     }
+    #colResizerHandle {
+      touch-action: none;
+    }
+    .resizer-active {
+      cursor: col-resize !important;
+    }
     .custom-scrollbar::-webkit-scrollbar {
       width: 6px;
       height: 6px;
@@ -206,28 +212,35 @@
       </button>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-      <!-- 2컬럼 헤더 (각 컬럼에 눈 모양 아이콘 👁️ 배치) -->
-      <div class="grid grid-cols-12 bg-slate-100/90 border-b border-slate-200 text-xs sm:text-sm font-bold text-slate-700">
+    <div id="vocabTableCard" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden" style="--word-col-width: 46%;">
+      <!-- 2컬럼 헤더 (각 컬럼에 눈 모양 아이콘 👁️ 및 너비 조절 핸들 ◀▶ 배치) -->
+      <div id="vocabTableHeader" class="relative flex items-stretch bg-slate-100/90 border-b border-slate-200 text-xs sm:text-sm font-bold text-slate-700">
         <!-- 좌측 컬럼 헤더: 영단어 -->
-        <div class="col-span-4 sm:col-span-4 px-2.5 sm:px-4 py-3 flex items-center justify-between border-r border-slate-200">
-          <div class="flex items-center gap-1.5">
+        <div id="headerWordCol" class="px-2.5 sm:px-4 py-3 flex items-center justify-between border-r border-slate-200 shrink-0" style="width: var(--word-col-width, 46%);">
+          <div class="flex items-center gap-1.5 min-w-0">
             <span class="truncate">영단어</span>
-            <span id="badgeWordColState" class="px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] rounded-full bg-emerald-100 text-emerald-800 font-medium">표시 중</span>
+            <span id="badgeWordColState" class="px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] rounded-full bg-emerald-100 text-emerald-800 font-medium shrink-0">표시 중</span>
           </div>
-          <button id="btnToggleWordEye" type="button" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-300 shadow-2xs transition text-xs shrink-0" title="영단어 컬럼 보이기/가리기 (가리면 필기 가능)">
+          <button id="btnToggleWordEye" type="button" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-300 shadow-2xs transition text-xs shrink-0 ml-1" title="영단어 컬럼 보이기/가리기 (가리면 필기 가능)">
             <span id="iconWordEye">👁️</span>
             <span id="labelWordEye" class="hidden sm:inline">가리기</span>
           </button>
         </div>
 
-        <!-- 우측 컬럼 헤더: 의미 (품사 + 한글 뜻 / 아랫줄 예문) -->
-        <div class="col-span-8 sm:col-span-8 px-2.5 sm:px-4 py-3 flex items-center justify-between">
-          <div class="flex items-center gap-1.5">
-            <span class="truncate">의미 (품사·뜻)</span>
-            <span id="badgeMeaningColState" class="px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] rounded-full bg-emerald-100 text-emerald-800 font-medium">표시 중</span>
+        <!-- ↔ 컬럼 너비 조절 인터랙티브 핸들 -->
+        <div id="colResizerHandle" class="w-8 -ml-4 -mr-4 z-30 cursor-col-resize flex items-center justify-center select-none touch-none group self-stretch" title="좌우로 드래그하여 컬럼 너비 조절 (더블클릭 시 기본값 복원)">
+          <div class="px-1.5 py-0.5 rounded-full bg-white group-hover:bg-indigo-600 group-hover:text-white text-slate-500 border border-slate-300 group-hover:border-indigo-600 text-[10px] font-bold shadow-sm transition-all flex items-center gap-0.5 pointer-events-none">
+            <span>◀</span><span>▶</span>
           </div>
-          <div class="flex items-center gap-1.5">
+        </div>
+
+        <!-- 우측 컬럼 헤더: 의미 (품사 + 한글 뜻 / 아랫줄 예문) -->
+        <div class="flex-1 px-2.5 sm:px-4 py-3 flex items-center justify-between min-w-0">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="truncate">의미 (품사·뜻)</span>
+            <span id="badgeMeaningColState" class="px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] rounded-full bg-emerald-100 text-emerald-800 font-medium shrink-0">표시 중</span>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0 ml-1">
             <button id="btnToggleMeaningEye" type="button" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-300 shadow-2xs transition text-xs shrink-0" title="의미 컬럼 보이기/가리기 (가리면 필기 가능)">
               <span id="iconMeaningEye">👁️</span>
               <span id="labelMeaningEye" class="hidden sm:inline">가리기</span>
@@ -841,6 +854,7 @@
       offlineEntries: [],
       settings: {
         fontSizeScale: 1.0,
+        wordColWidthPercent: 46, // 영단어 컬럼 너비 기본값 (사용자 드래그로 조절 가능)
         showPhonetic: true,
         showPos: true,
         showExample: true,
@@ -868,7 +882,7 @@
         bookTitle: "",
         chapterName: "",
         selectedBooks: [],
-        selectedChapters: [],
+        selectedChapters: null, // null: 디폴트로 가장 최근 2개 단원 자동 선택
         keyword: "",
         sortOrder: "INPUT_ORDER",
         randomSeed: 1
@@ -1813,7 +1827,20 @@
           untaggedChapCount++;
         }
       }
-      const allChapters = Array.from(chapCounts.keys()).sort();
+      const allChapters = Array.from(chapCounts.keys()).sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
+      );
+
+      // 디폴트로 단원은 전부 체크하지 않고, 가장 최근 2개만 체크
+      if (state.filters.selectedChapters === null) {
+        if (allChapters.length > 0) {
+          state.filters.selectedChapters = allChapters.slice(-2);
+        } else if (untaggedChapCount > 0) {
+          state.filters.selectedChapters = ["__NONE__"];
+        } else {
+          state.filters.selectedChapters = [];
+        }
+      }
 
       // 현재 선택된 단원들 중 유효하지 않은 단원 정리
       if (!state.filters.selectedChapters) state.filters.selectedChapters = [];
@@ -1952,9 +1979,9 @@
             : "bg-slate-100 text-slate-600 border-slate-200";
 
         return `
-          <div class="grid grid-cols-12 items-stretch hover:bg-slate-50/70 transition" data-entry-id="${entry.id}">
-            <!-- 좌측 컬럼: 영단어 + 발음기호(선택) + 소리버튼 + 필기 캔버스 (너비 축소: col-span-4) -->
-            <div class="col-span-4 sm:col-span-4 p-2.5 sm:p-4 border-r border-slate-200 relative min-h-[92px] flex flex-col justify-between ${!isWordVisible ? 'bg-amber-50/30' : ''}">
+          <div class="flex items-stretch hover:bg-slate-50/70 transition" data-entry-id="${entry.id}">
+            <!-- 좌측 컬럼: 영단어 + 발음기호(선택) + 소리버튼 + 필기 캔버스 (사용자 조절 너비) -->
+            <div class="p-2.5 sm:p-4 border-r border-slate-200 relative min-h-[92px] flex flex-col justify-between shrink-0 ${!isWordVisible ? 'bg-amber-50/30' : ''}" style="width: var(--word-col-width, 46%);">
               <!-- 실제 영단어 컨텐츠 -->
               <div class="${!isWordVisible ? 'opacity-0 pointer-events-none select-none' : 'opacity-100'} transition-opacity pr-6 sm:pr-8">
                 <div class="flex items-center justify-between gap-1">
@@ -1995,8 +2022,8 @@
               ></canvas>
             </div>
 
-            <!-- 우측 컬럼: 의미 (상단: 품사 & 오답/정답 버튼 / 아랫줄: 한글 뜻 / 하단: 예문) (너비 확장: col-span-8) -->
-            <div class="col-span-8 sm:col-span-8 p-2.5 sm:p-4 relative min-h-[92px] flex flex-col justify-between ${!isMeaningVisible ? 'bg-amber-50/30' : ''}">
+            <!-- 우측 컬럼: 의미 (상단: 품사 & 오답/정답 버튼 / 아랫줄: 한글 뜻 / 하단: 예문) -->
+            <div class="flex-1 p-2.5 sm:p-4 relative min-h-[92px] flex flex-col justify-between min-w-0 ${!isMeaningVisible ? 'bg-amber-50/30' : ''}">
               <div class="w-full relative z-20">
                 <!-- 1줄: 품사 (좌측) + 오답/정답/필기지우기 버튼 (우측) -->
                 <div class="flex items-center justify-between gap-1 mb-1.5">
@@ -2369,10 +2396,79 @@
     }
 
     // =========================================================================
+    // 영단어 vs 의미 컬럼 너비 인터랙티브 조절 (마우스 / 터치 드래그 리사이저)
+    // =========================================================================
+    function applyWordColWidth() {
+      const widthPercent = state.settings.wordColWidthPercent || 46;
+      const tableCard = document.getElementById("vocabTableCard");
+      if (tableCard) {
+        tableCard.style.setProperty("--word-col-width", `${widthPercent}%`);
+      }
+    }
+
+    function initColumnResizer() {
+      const resizer = document.getElementById("colResizerHandle");
+      const container = document.getElementById("vocabTableCard");
+      if (!resizer || !container) return;
+
+      let isDragging = false;
+      let startX = 0;
+      let startWidthPx = 0;
+      let containerWidthPx = 0;
+
+      const onPointerDown = (e) => {
+        isDragging = true;
+        resizer.setPointerCapture(e.pointerId);
+        startX = e.clientX;
+        const wordCol = document.getElementById("headerWordCol");
+        startWidthPx = wordCol ? wordCol.getBoundingClientRect().width : 0;
+        containerWidthPx = container.getBoundingClientRect().width;
+        document.body.classList.add("select-none");
+        resizer.classList.add("resizer-active");
+      };
+
+      const onPointerMove = (e) => {
+        if (!isDragging || containerWidthPx <= 0) return;
+        const deltaX = e.clientX - startX;
+        const newWidthPx = startWidthPx + deltaX;
+        let newPercent = Math.round((newWidthPx / containerWidthPx) * 100);
+        // 모바일/데스크톱 모두에서 너무 극단적으로 줄어들지 않도록 25% ~ 75% 범위 제한
+        newPercent = Math.max(25, Math.min(75, newPercent));
+
+        state.settings.wordColWidthPercent = newPercent;
+        container.style.setProperty("--word-col-width", `${newPercent}%`);
+      };
+
+      const onPointerUp = (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        document.body.classList.remove("select-none");
+        resizer.classList.remove("resizer-active");
+        saveToStorage();
+        initScratchpadCanvases();
+      };
+
+      resizer.addEventListener("pointerdown", onPointerDown);
+      resizer.addEventListener("pointermove", onPointerMove);
+      resizer.addEventListener("pointerup", onPointerUp);
+      resizer.addEventListener("pointercancel", onPointerUp);
+
+      // 더블 클릭 시 모바일/데스크톱 최적 기본값(46%)으로 리셋
+      resizer.addEventListener("dblclick", () => {
+        state.settings.wordColWidthPercent = 46;
+        container.style.setProperty("--word-col-width", "46%");
+        saveToStorage();
+        initScratchpadCanvases();
+      });
+    }
+
+    // =========================================================================
     // 이벤트 바인딩 초기화
     // =========================================================================
     window.addEventListener("DOMContentLoaded", () => {
       loadFromStorage();
+      applyWordColWidth();
+      initColumnResizer();
       renderFilterDropdowns();
       renderVocabList();
       updateNetworkUI();
@@ -2473,6 +2569,7 @@
         } else {
           state.filters.selectedBooks = checkedInputs.map((i) => i.value);
         }
+        state.filters.selectedChapters = null; // 책 선택 변경 시 해당 책의 가장 최근 2개 단원으로 자동 갱신
         renderFilterDropdowns();
         renderVocabList();
       });
@@ -2480,6 +2577,7 @@
       // 책제목 전체 선택 버튼
       document.getElementById("btnBookSelectAll").addEventListener("click", () => {
         state.filters.selectedBooks = [];
+        state.filters.selectedChapters = null; // 가장 최근 2개 단원으로 자동 갱신
         renderFilterDropdowns();
         renderVocabList();
       });
@@ -2487,6 +2585,7 @@
       // 책제목 전체 해제 버튼
       document.getElementById("btnBookClearAll").addEventListener("click", () => {
         state.filters.selectedBooks = ["__NO_SELECTION__"];
+        state.filters.selectedChapters = ["__NO_SELECTION__"];
         renderFilterDropdowns();
         renderVocabList();
       });
