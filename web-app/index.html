@@ -22,7 +22,7 @@
       cursor: crosshair;
     }
     #colResizerHandle {
-      touch-action: none;
+      touch-action: pan-y;
     }
     .resizer-active {
       cursor: col-resize !important;
@@ -212,11 +212,16 @@
       </button>
     </div>
 
-    <div id="vocabTableCard" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden" style="--word-col-width: 46%;">
-      <!-- 2컬럼 헤더 (각 컬럼에 눈 모양 아이콘 👁️ 및 너비 조절 핸들 ◀▶ 배치) -->
+    <div id="vocabTableCard" class="relative bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden" style="--word-col-width: 46%;">
+      <!-- 컬럼 경계선 드래그 리사이저 (시각적 핸들 없이 경계선을 잡고 좌우 드래그하여 조절) -->
+      <div id="colResizerHandle" class="absolute top-0 bottom-0 z-30 w-4 -ml-2 cursor-col-resize select-none group" style="left: var(--word-col-width, 46%);" title="경계선을 좌우로 드래그하여 컬럼 너비 조절 (더블클릭 시 기본값 복원)">
+        <div id="colResizerLine" class="w-0.5 h-full mx-auto bg-transparent group-hover:bg-indigo-400/60 transition-colors"></div>
+      </div>
+
+      <!-- 2컬럼 헤더 (각 컬럼에 눈 모양 아이콘 👁️ 배치) -->
       <div id="vocabTableHeader" class="relative flex items-stretch bg-slate-100/90 border-b border-slate-200 text-xs sm:text-sm font-bold text-slate-700">
         <!-- 좌측 컬럼 헤더: 영단어 -->
-        <div id="headerWordCol" class="px-2.5 sm:px-4 py-3 flex items-center justify-between border-r border-slate-200 shrink-0" style="width: var(--word-col-width, 46%);">
+        <div id="headerWordCol" class="pl-2.5 pr-3 sm:px-4 py-3 flex items-center justify-between border-r border-slate-200 shrink-0" style="width: var(--word-col-width, 46%);">
           <div class="flex items-center gap-1.5 min-w-0">
             <span class="truncate">영단어</span>
             <span id="badgeWordColState" class="px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] rounded-full bg-emerald-100 text-emerald-800 font-medium shrink-0">표시 중</span>
@@ -227,15 +232,8 @@
           </button>
         </div>
 
-        <!-- ↔ 컬럼 너비 조절 인터랙티브 핸들 -->
-        <div id="colResizerHandle" class="w-8 -ml-4 -mr-4 z-30 cursor-col-resize flex items-center justify-center select-none touch-none group self-stretch" title="좌우로 드래그하여 컬럼 너비 조절 (더블클릭 시 기본값 복원)">
-          <div class="px-1.5 py-0.5 rounded-full bg-white group-hover:bg-indigo-600 group-hover:text-white text-slate-500 border border-slate-300 group-hover:border-indigo-600 text-[10px] font-bold shadow-sm transition-all flex items-center gap-0.5 pointer-events-none">
-            <span>◀</span><span>▶</span>
-          </div>
-        </div>
-
         <!-- 우측 컬럼 헤더: 의미 (품사 + 한글 뜻 / 아랫줄 예문) -->
-        <div class="flex-1 px-2.5 sm:px-4 py-3 flex items-center justify-between min-w-0">
+        <div class="flex-1 pl-3 pr-2.5 sm:px-4 py-3 flex items-center justify-between min-w-0">
           <div class="flex items-center gap-1.5 min-w-0">
             <span class="truncate">의미 (품사·뜻)</span>
             <span id="badgeMeaningColState" class="px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] rounded-full bg-emerald-100 text-emerald-800 font-medium shrink-0">표시 중</span>
@@ -2408,28 +2406,48 @@
 
     function initColumnResizer() {
       const resizer = document.getElementById("colResizerHandle");
+      const resizerLine = document.getElementById("colResizerLine");
       const container = document.getElementById("vocabTableCard");
       if (!resizer || !container) return;
 
       let isDragging = false;
+      let isHorizontalDrag = null; // null: 판정 전, true: 가로 너비 조절, false: 세로 스크롤
       let startX = 0;
+      let startY = 0;
       let startWidthPx = 0;
       let containerWidthPx = 0;
 
       const onPointerDown = (e) => {
         isDragging = true;
-        resizer.setPointerCapture(e.pointerId);
+        isHorizontalDrag = null;
         startX = e.clientX;
+        startY = e.clientY;
         const wordCol = document.getElementById("headerWordCol");
         startWidthPx = wordCol ? wordCol.getBoundingClientRect().width : 0;
         containerWidthPx = container.getBoundingClientRect().width;
-        document.body.classList.add("select-none");
-        resizer.classList.add("resizer-active");
       };
 
       const onPointerMove = (e) => {
         if (!isDragging || containerWidthPx <= 0) return;
         const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+
+        if (isHorizontalDrag === null) {
+          if (Math.abs(deltaX) < 4 && Math.abs(deltaY) < 4) return;
+          if (Math.abs(deltaY) > Math.abs(deltaX)) {
+            isDragging = false;
+            return;
+          }
+          isHorizontalDrag = true;
+          try { resizer.setPointerCapture(e.pointerId); } catch (_) {}
+          document.body.classList.add("select-none");
+          resizer.classList.add("resizer-active");
+          if (resizerLine) {
+            resizerLine.classList.remove("bg-transparent");
+            resizerLine.classList.add("bg-indigo-500");
+          }
+        }
+
         const newWidthPx = startWidthPx + deltaX;
         let newPercent = Math.round((newWidthPx / containerWidthPx) * 100);
         // 모바일/데스크톱 모두에서 너무 극단적으로 줄어들지 않도록 25% ~ 75% 범위 제한
@@ -2439,13 +2457,21 @@
         container.style.setProperty("--word-col-width", `${newPercent}%`);
       };
 
-      const onPointerUp = (e) => {
+      const onPointerUp = () => {
         if (!isDragging) return;
+        const wasHorizontal = isHorizontalDrag === true;
         isDragging = false;
+        isHorizontalDrag = null;
         document.body.classList.remove("select-none");
         resizer.classList.remove("resizer-active");
-        saveToStorage();
-        initScratchpadCanvases();
+        if (resizerLine) {
+          resizerLine.classList.remove("bg-indigo-500");
+          resizerLine.classList.add("bg-transparent");
+        }
+        if (wasHorizontal) {
+          saveToStorage();
+          initScratchpadCanvases();
+        }
       };
 
       resizer.addEventListener("pointerdown", onPointerDown);
